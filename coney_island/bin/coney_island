@@ -1,0 +1,10 @@
+#!/usr/bin/env ruby
+
+$LOAD_PATH.push '.'
+require 'config/environment.rb'
+
+## Copyright 2011 Eric Draut, all rights reserved
+
+ConeyIsland.run_inline
+ConeyIsland.initialize_background
+ConeyIsland.start
