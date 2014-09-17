@@ -7,4 +7,4 @@ require 'config/environment.rb'
 
 ConeyIsland.run_inline
 ConeyIsland.initialize_background
-ConeyIsland.start
+ConeyIsland.start_worker
