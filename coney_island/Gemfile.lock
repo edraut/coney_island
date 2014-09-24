@@ -42,8 +42,6 @@ GEM
       eventmachine
     arel (5.0.1.20140414130214)
     builder (3.2.2)
-    em-minitest-spec (1.1.1)
-      eventmachine
     erubis (2.7.0)
     eventmachine (1.0.3)
     hike (1.2.3)
@@ -95,6 +93,5 @@ PLATFORMS
 
 DEPENDENCIES
   coney_island!
-  em-minitest-spec
   minitest
   sqlite3

@@ -25,6 +25,5 @@ Gem::Specification.new do |s|
   s.add_dependency "eventmachine", ">= 1.0.3"
 
   s.add_development_dependency "sqlite3"
-  s.add_development_dependency "em-minitest-spec"
   s.add_development_dependency "minitest"
 end

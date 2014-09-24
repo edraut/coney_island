@@ -9,6 +9,18 @@ module ConeyIsland
       @config
     end
 
+    def self.log
+      @log ||= Logger.new(File.open(File::NULL, "w"))
+    end
+
+    def self.log=(log_thing)
+      @log = log_thing
+    end
+
+    def self.job_attempts
+      @job_attempts ||= {}
+    end
+
     def self.initialize_background
       ENV['NEW_RELIC_AGENT_ENABLED'] = 'false'
       ENV['NEWRELIC_ENABLE'] = 'false'
@@ -16,7 +28,7 @@ module ConeyIsland
       @ticket ||= 'default'
 
       @log_io = self.config[:log]
-      @log = Logger.new(@log_io)
+      self.log = Logger.new(@log_io)
 
       @instance_config = self.config[:carousels][@ticket]
 
@@ -29,10 +41,9 @@ module ConeyIsland
       @child_pids = []
 
       @full_instance_name = @ticket
-      @job_attempts = {}
 
-      @log.level = self.config[:log_level]
-      @log.info("config: #{self.config}")
+      self.log.level = self.config[:log_level]
+      self.log.info("config: #{self.config}")
 
       @notifier = "ConeyIsland::Notifiers::#{self.config[:notifier_service]}Notifier".constantize
     end
@@ -41,7 +52,7 @@ module ConeyIsland
       @child_count.times do
         child_pid = Process.fork
         unless child_pid
-          @log.info("started child for ticket #{@ticket} with pid #{Process.pid}")
+          self.log.info("started child for ticket #{@ticket} with pid #{Process.pid}")
           break
         end
         @child_pids.push child_pid
@@ -59,7 +70,7 @@ module ConeyIsland
 
         ConeyIsland.handle_connection
         
-        @log.info("Connecting to AMQP broker. Running #{AMQP::VERSION}")
+        self.log.info("Connecting to AMQP broker. Running #{AMQP::VERSION}")
 
         #send a heartbeat every 15 seconds to avoid aggresive network configurations that close quiet connections
         heartbeat_exchange = ConeyIsland.channel.fanout('coney_island_heartbeat')
@@ -79,9 +90,9 @@ module ConeyIsland
     def self.handle_incoming_message(metadata,payload)
       begin
         job_id = SecureRandom.uuid
-        @job_attempts[job_id] = 1
+        self.job_attempts[job_id] = 1
         args = JSON.parse(payload)
-        @log.info ("Starting job #{job_id}: #{args}")
+        self.log.info ("Starting job #{job_id}: #{args}")
         if args.has_key? 'delay'
           EventMachine.add_timer(args['delay'].to_i) do
             self.handle_job(metadata,args,job_id)
@@ -93,7 +104,7 @@ module ConeyIsland
         self.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args, reason: 'timeout in subscribe code before calling job method'})
       rescue Exception => e
         self.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args})
-        @log.error("ConeyIsland code error, not application code:\n#{e.inspect}\nARGS: #{args}")
+        self.log.error("ConeyIsland code error, not application code:\n#{e.inspect}\nARGS: #{args}")
       end
     end
 
@@ -105,22 +116,22 @@ module ConeyIsland
           self.execute_job_method(args)
         end
       rescue Timeout::Error => e
-        if @job_attempts.has_key? job_id
-          if @job_attempts[job_id] >= 3
-            @log.error("Request #{job_id} timed out after #{timeout} seconds, bailing out after 3 attempts")
+        if self.job_attempts.has_key? job_id
+          if self.job_attempts[job_id] >= 3
+            self.log.error("Request #{job_id} timed out after #{timeout} seconds, bailing out after 3 attempts")
             self.finalize_job(metadata,job_id)
             self.poke_the_badger(e, {work_queue: @ticket, job_payload: args, reason: 'Bailed out after 3 attempts'})
           else
-            @log.error("Request #{job_id} timed out after #{timeout} seconds on attempt number #{@job_attempts[job_id]}, retrying...")
-            @job_attempts[job_id] += 1
+            self.log.error("Request #{job_id} timed out after #{timeout} seconds on attempt number #{self.job_attempts[job_id]}, retrying...")
+            self.job_attempts[job_id] += 1
             self.handle_job(metadata,args,job_id)
           end
         end
       rescue Exception => e
         self.poke_the_badger(e, {work_queue: @ticket, job_payload: args})
-        @log.error("Error executing #{class_name}##{method_name} #{job_id} for id #{args['instance_id']} with args #{args}:")
-        @log.error(e.message)
-        @log.error(e.backtrace.join("\n"))
+        self.log.error("Error executing #{args['klass']}##{args['method_name']} #{job_id} for id #{args['instance_id']} with args #{args}:")
+        self.log.error(e.message)
+        self.log.error(e.backtrace.join("\n"))
         self.finalize_job(metadata,job_id)
       else
         self.finalize_job(metadata,job_id)
@@ -147,8 +158,8 @@ module ConeyIsland
 
     def self.finalize_job(metadata,job_id)
       metadata.ack
-      @log.info("finished job #{job_id}")
-      @job_attempts.delete job_id
+      self.log.info("finished job #{job_id}")
+      self.job_attempts.delete job_id
     end
 
     def self.poke_the_badger(message, context, attempts = 1)
@@ -171,10 +182,10 @@ module ConeyIsland
       end
       @queue.unsubscribe
       EventMachine.add_periodic_timer(1) do
-        if @job_attempts.any?
-          @log.info("Waiting for #{@job_attempts.length} requests to finish")
+        if self.job_attempts.any?
+          self.log.info("Waiting for #{self.job_attempts.length} requests to finish")
         else
-          @log.info("Shutting down coney island #{@ticket}")
+          self.log.info("Shutting down coney island #{@ticket}")
           EventMachine.stop
         end
       end
