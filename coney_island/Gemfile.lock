@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    coney_island (0.0.4)
+    coney_island (0.0.6)
       amqp (>= 1.5.0)
       eventmachine (>= 1.0.3)
       rails (>= 4.0.1)

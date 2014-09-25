@@ -1,7 +1,7 @@
 require 'test_helper'
 
 class ConeyIslandTest < MiniTest::Test
-  describe "running jobs" do
+  describe "ConeyIsland running jobs" do
     it "runs inline" do
       ConeyIsland.run_inline
       my_array = []
