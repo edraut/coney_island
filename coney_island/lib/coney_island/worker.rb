@@ -30,7 +30,7 @@ module ConeyIsland
       @log_io = self.config[:log]
       self.log = Logger.new(@log_io)
 
-      @instance_config = self.config[:carousels][@ticket]
+      @instance_config = self.config[:carousels][@ticket.to_sym]
 
       @prefetch_count = @instance_config[:prefetch_count] if @instance_config
       @prefetch_count ||= 20
