@@ -9,7 +9,7 @@ Gem::Specification.new do |s|
   s.version     = ConeyIsland::VERSION
   s.authors     = ["Eric Draut","Adam Bialek"]
   s.email       = ["edraut@gmail.com"]
-  s.homepage    = "https://github.com/edraut/coney_island"
+  s.homepage    = "http://edraut.github.io/coney_island/"
   s.summary     = "Want guaranteed delivery between your queue and your workers using ACKs? How about load-balancing? Would job-specific timeouts be nice? Throw in all the features other background worker systems offer and you must have a ticket to ride at Coney Island."
   s.description = "An industrial-strength background worker system for rails using RabbitMQ."
   s.license     = "MIT"
