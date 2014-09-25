@@ -27,8 +27,31 @@ module ConeyIsland
       end
     end
 
+    def self.exchange
+      @exchange
+    end
+
+    def self.amqp_parameters=(params)
+      @amqp_parameters = params
+    end
+
+    def self.amqp_parameters
+      @amqp_parameters
+    end
+
+    def self.handle_connection
+      if ConeyIsland.single_amqp_connection?
+        ConeyIsland.handle_connection
+        @exchange = ConeyIsland.exchange
+      else
+        @connection ||= AMQP.connect(self.amqp_parameters)
+        @channel  ||= AMQP::Channel.new(@connection)
+        @exchange = @channel.topic('coney_island')
+      end
+    end
+
     def self.handle_publish(args)
-      ConeyIsland.handle_connection unless @run_inline
+      self.handle_connection unless @run_inline
       jobs = (args.first.is_a? Array) ? args : [args]
       jobs.each do |args|
         if (args.first.is_a? Class or args.first.is_a? Module) and (args[1].is_a? String or args[1].is_a? Symbol) and args.last.is_a? Hash and 3 == args.length
@@ -45,7 +68,7 @@ module ConeyIsland
           else
             work_queue = job_args.delete :work_queue
             work_queue ||= 'default'
-            ConeyIsland.exchange.publish((job_args.to_json), routing_key: "carousels.#{work_queue}")
+            self.exchange.publish((job_args.to_json), routing_key: "carousels.#{work_queue}")
           end
         end
         RequestStore.store[:completed_jobs] ||= 0

@@ -48,6 +48,35 @@ module ConeyIsland
       @notifier = "ConeyIsland::Notifiers::#{self.config[:notifier_service]}Notifier".constantize
     end
 
+    def self.exchange
+      @exchange
+    end
+
+    def self.channel
+      @channel
+    end
+
+    def self.amqp_parameters=(params)
+      @amqp_parameters = params
+    end
+
+    def self.amqp_parameters
+      @amqp_parameters
+    end
+
+    def self.handle_connection
+      if ConeyIsland.single_amqp_connection?
+        ConeyIsland.handle_connection
+        @exchange = ConeyIsland.exchange
+        @channel = ConeyIsland.channel
+      else
+        puts self.amqp_parameters
+        @connection ||= AMQP.connect(self.amqp_parameters)
+        @channel  ||= AMQP::Channel.new(@connection)
+        @exchange = @channel.topic('coney_island')
+      end
+    end
+
     def self.start
       @child_count.times do
         child_pid = Process.fork
@@ -68,19 +97,19 @@ module ConeyIsland
           self.shutdown('TERM')
         end
 
-        ConeyIsland.handle_connection
+        self.handle_connection
         
         self.log.info("Connecting to AMQP broker. Running #{AMQP::VERSION}")
 
         #send a heartbeat every 15 seconds to avoid aggresive network configurations that close quiet connections
-        heartbeat_exchange = ConeyIsland.channel.fanout('coney_island_heartbeat')
+        heartbeat_exchange = self.channel.fanout('coney_island_heartbeat')
         EventMachine.add_periodic_timer(15) do
           heartbeat_exchange.publish({:instance_name => @ticket})
         end
 
-        ConeyIsland.channel.prefetch @prefetch_count
-        @queue = ConeyIsland.channel.queue(@full_instance_name, auto_delete: false, durable: true)
-        @queue.bind(ConeyIsland.exchange, routing_key: 'carousels.' + @ticket)
+        self.channel.prefetch @prefetch_count
+        @queue = self.channel.queue(@full_instance_name, auto_delete: false, durable: true)
+        @queue.bind(self.exchange, routing_key: 'carousels.' + @ticket)
         @queue.subscribe(:ack => true) do |metadata,payload|
           self.handle_incoming_message(metadata,payload)
         end

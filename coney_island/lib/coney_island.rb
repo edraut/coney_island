@@ -13,7 +13,7 @@ module ConeyIsland
   end
 
   def self.amqp_parameters
-    @amqp_parameters ||= (self.config.present? ? self.config[:amqp_connection] : nil)
+    @amqp_parameters
   end
 
   def self.handle_connection
@@ -35,11 +35,20 @@ module ConeyIsland
   end
 
   def self.config=(config_hash)
+    self.amqp_parameters = config_hash.delete :amqp_connection
+    if !self.single_amqp_connection?
+      ConeyIsland::Submitter.amqp_parameters = config_hash.delete :amqp_connection_submitter
+      ConeyIsland::Worker.amqp_parameters = config_hash.delete :amqp_connection_worker
+    end
     ConeyIsland::Worker.config=(config_hash)
   end
 
   def self.config
     ConeyIsland::Worker.config
+  end
+
+  def self.single_amqp_connection?
+    !!self.amqp_parameters
   end
 
   def self.initialize_background
