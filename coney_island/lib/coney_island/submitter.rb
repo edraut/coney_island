@@ -93,10 +93,10 @@ module ConeyIsland
 
     def self.run_with_em(klass, method, *args)
       EventMachine.run do
-        ConeyIsland.cache_jobs
+        self.cache_jobs
         klass.send(method, *args)
-        ConeyIsland.flush_jobs
-        ConeyIsland.publisher_shutdown
+        self.flush_jobs
+        self.publisher_shutdown
       end
     end
 
