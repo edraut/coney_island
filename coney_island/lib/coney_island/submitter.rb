@@ -21,9 +21,7 @@ module ConeyIsland
       if @run_inline
         self.handle_publish(args)
       else
-        EventMachine.next_tick do
           self.handle_publish(args)
-        end
       end
     end
 
@@ -52,28 +50,34 @@ module ConeyIsland
 
     def self.handle_publish(args)
       self.handle_connection unless @run_inline
-      jobs = (args.first.is_a? Array) ? args : [args]
-      jobs.each do |args|
-        if (args.first.is_a? Class or args.first.is_a? Module) and (args[1].is_a? String or args[1].is_a? Symbol) and args.last.is_a? Hash and 3 == args.length
-          klass = args.shift
-          klass = klass.name
-          method_name = args.shift
-          job_args = args.shift
-          job_args ||= {}
-          job_args['klass'] = klass
-          job_args['method_name'] = method_name
-          if @run_inline
-            job_args.stringify_keys!
-            ConeyIsland::Worker.execute_job_method(job_args)
-          else
-            work_queue = job_args.delete :work_queue
-            work_queue ||= 'default'
-            self.exchange.publish((job_args.to_json), routing_key: "carousels.#{work_queue}")
-          end
+      if :all_cached_jobs == args
+        RequestStore.store[:jobs].delete_if do |job_args|
+          self.publish_job(job_args)
         end
-        RequestStore.store[:completed_jobs] ||= 0
-        RequestStore.store[:completed_jobs] += 1
+      else
+        self.publish_job(args)
       end
+    end
+
+    def self.publish_job(args)
+      if (args.first.is_a? Class or args.first.is_a? Module) and (args[1].is_a? String or args[1].is_a? Symbol) and args.last.is_a? Hash and 3 == args.length
+        klass = args.shift
+        klass = klass.name
+        method_name = args.shift
+        job_args = args.shift
+        job_args ||= {}
+        job_args['klass'] = klass
+        job_args['method_name'] = method_name
+        if @run_inline
+          job_args.stringify_keys!
+          ConeyIsland::Worker.execute_job_method(job_args)
+        else
+          work_queue = job_args.delete :work_queue
+          work_queue ||= 'default'
+          self.exchange.publish((job_args.to_json), routing_key: "carousels.#{work_queue}")
+        end
+      end
+      true
     end
 
     def self.cache_jobs
@@ -82,9 +86,7 @@ module ConeyIsland
     end
 
     def self.flush_jobs
-      jobs = RequestStore.store[:jobs].dup
-      self.submit!(jobs) if jobs.any?
-      RequestStore.store[:jobs] = []
+      self.submit!(:all_cached_jobs) if RequestStore.store[:jobs].any?
     end
 
     def self.stop_caching_jobs
@@ -102,8 +104,8 @@ module ConeyIsland
 
     def self.publisher_shutdown
       EventMachine.add_periodic_timer(1) do
-        if RequestStore.store[:jobs] && (RequestStore.store[:jobs].length > RequestStore.store[:completed_jobs])
-          Rails.logger.info("Waiting for #{RequestStore.store[:jobs].length - RequestStore.store[:completed_jobs]} publishes to finish")
+        if RequestStore.store[:jobs] && (RequestStore.store[:jobs].length > 0)
+          Rails.logger.info("Waiting for #{RequestStore.store[:jobs].length} publishes to finish")
         else
           Rails.logger.info("Shutting down coney island publisher")
           EventMachine.stop
