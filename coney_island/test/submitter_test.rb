@@ -17,17 +17,12 @@ class SubmitterTest < MiniTest::Test
       it "publishes the job to the message bus" do
         @exchange = Minitest::Mock.new
         @exchange.expect :publish, nil, [String,Hash]
-        @next_tick = Minitest::Mock.new
-        @next_tick.expect :call, nil, []
-        EventMachine.stub(:next_tick, @next_tick) do
-          ConeyIsland::Submitter.stub(:handle_connection, nil) do
-            ConeyIsland::Submitter.stub(:exchange, @exchange) do
-              ConeyIsland::Submitter.stop_running_inline
-              ConeyIsland::Submitter.submit(TestModel, :add_to_list, args: [[]])
-            end
+        ConeyIsland::Submitter.stub(:handle_connection, nil) do
+          ConeyIsland::Submitter.stub(:exchange, @exchange) do
+            ConeyIsland::Submitter.stop_running_inline
+            ConeyIsland::Submitter.submit(TestModel, :add_to_list, args: [[]])
           end
         end
-        @next_tick.verify
         @exchange.verify
       end
     end

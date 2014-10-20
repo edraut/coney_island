@@ -16,8 +16,52 @@ module ConeyIsland
     @amqp_parameters
   end
 
-  def self.handle_connection
+  def self.tcp_connection_retries=(number)
+    @tcp_connection_retries = number
+  end
+
+  def self.tcp_connection_retries
+    @tcp_connection_retries
+  end
+
+  def self.tcp_connection_retry_limit=(limit)
+    @tcp_connection_retry_limit = limit
+  end
+  
+  def self.tcp_connection_retry_limit
+    @tcp_connection_retry_limit ||= 6
+  end
+
+  def self.tcp_connection_retry_interval=(interval)
+    @tcp_connection_retry_interval = interval
+  end
+  
+  def self.tcp_connection_retry_interval
+    @tcp_connection_retry_interval ||= 10
+  end
+
+  def self.handle_connection(log)
     @connection ||= AMQP.connect(self.amqp_parameters)
+  rescue AMQP::TCPConnectionFailed => e
+    self.tcp_connection_retries ||= 0
+      self.tcp_connection_retries += 1
+    if self.tcp_connection_retries >= self.tcp_connection_retry_limit
+      message = "Failed to connect to RabbitMQ #{self.tcp_connection_retry_limit} times, bailing out"
+      log.error(message)
+      self.poke_the_badger(e, {
+        code_source: 'ConeyIsland.handle_connection',
+        reason: message}
+      )
+    else
+      message = "Failed to connecto to RabbitMQ Attempt ##{self.tcp_connection_retries} time(s), trying again in #{self.tcp_connection_retry_interval} seconds..."
+      log.error(message)
+      self.poke_the_badger(e, {
+        code_source: 'ConeyIsland.handle_connection',
+        reason: message})
+      sleep(self.tcp_connection_retry_interval)
+      retry
+    end
+  else
     @channel  ||= AMQP::Channel.new(@connection)
     self.exchange = @channel.topic('coney_island')
   end
@@ -86,6 +130,18 @@ module ConeyIsland
   def self.submit(*args)
     ConeyIsland::Submitter.submit(*args)
   end
+
+  def self.poke_the_badger(message, context, attempts = 1)
+    Timeout::timeout(3) do
+      @notifier.notify(message, context)
+    end
+  rescue
+    if attempts <= 3
+      attempts += 1
+      retry
+    end
+  end
+
 end
 
 require 'coney_island/notifiers/honeybadger_notifier'

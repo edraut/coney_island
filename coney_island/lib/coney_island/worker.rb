@@ -66,16 +66,40 @@ module ConeyIsland
 
     def self.handle_connection
       if ConeyIsland.single_amqp_connection?
-        ConeyIsland.handle_connection
+        ConeyIsland.handle_connection(self.log)
         @exchange = ConeyIsland.exchange
         @channel = ConeyIsland.channel
       else
-        puts self.amqp_parameters
-        @connection ||= AMQP.connect(self.amqp_parameters)
-        @channel  ||= AMQP::Channel.new(@connection)
-        @exchange = @channel.topic('coney_island')
+        self.worker_connection
       end
     end
+
+    def self.worker_connection
+      @connection ||= AMQP.connect(self.amqp_parameters)
+    rescue AMQP::TCPConnectionFailed => e
+      @tcp_connection_retries ||= 0
+        @tcp_connection_retries += 1
+      if @tcp_connection_retries >= 6
+        message = "Failed to connect to RabbitMQ 6 times, bailing out"
+        self.log.error(message)
+        ConeyIsland.poke_the_badger(e, {
+          code_source: 'ConeyIsland::Worker.worker_connection',
+          reason: message}
+        )
+      else
+        message = "Failed to connecto to RabbitMQ Attempt ##{@tcp_connection_retries} time(s), trying again in 10 seconds..."
+        self.log.error(message)
+        ConeyIsland.poke_the_badger(e, {
+          code_source: 'ConeyIsland::Worker.worker_connection',
+          reason: message})
+        sleep(10)
+        retry
+      end
+    else
+      @channel  ||= AMQP::Channel.new(@connection)
+      @exchange = @channel.topic('coney_island')
+    end
+
 
     def self.start
       @child_count.times do
@@ -130,9 +154,9 @@ module ConeyIsland
           self.handle_job(metadata,args,job_id)
         end
       rescue Timeout::Error => e
-        self.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args, reason: 'timeout in subscribe code before calling job method'})
+        ConeyIsland.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args, reason: 'timeout in subscribe code before calling job method'})
       rescue Exception => e
-        self.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args})
+        ConeyIsland.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args})
         self.log.error("ConeyIsland code error, not application code:\n#{e.inspect}\nARGS: #{args}")
       end
     end
@@ -149,7 +173,7 @@ module ConeyIsland
           if self.job_attempts[job_id] >= 3
             self.log.error("Request #{job_id} timed out after #{timeout} seconds, bailing out after 3 attempts")
             self.finalize_job(metadata,job_id)
-            self.poke_the_badger(e, {work_queue: @ticket, job_payload: args, reason: 'Bailed out after 3 attempts'})
+            ConeyIsland.poke_the_badger(e, {work_queue: @ticket, job_payload: args, reason: 'Bailed out after 3 attempts'})
           else
             self.log.error("Request #{job_id} timed out after #{timeout} seconds on attempt number #{self.job_attempts[job_id]}, retrying...")
             self.job_attempts[job_id] += 1
@@ -157,7 +181,7 @@ module ConeyIsland
           end
         end
       rescue Exception => e
-        self.poke_the_badger(e, {work_queue: @ticket, job_payload: args})
+        ConeyIsland.poke_the_badger(e, {work_queue: @ticket, job_payload: args})
         self.log.error("Error executing #{args['klass']}##{args['method_name']} #{job_id} for id #{args['instance_id']} with args #{args}:")
         self.log.error(e.message)
         self.log.error(e.backtrace.join("\n"))
@@ -189,19 +213,6 @@ module ConeyIsland
       metadata.ack
       self.log.info("finished job #{job_id}")
       self.job_attempts.delete job_id
-    end
-
-    def self.poke_the_badger(message, context, attempts = 1)
-      begin
-        Timeout::timeout(3) do
-          @notifier.notify(message, context)
-        end
-      rescue
-        if attempts <= 3
-          attempts += 1
-          self.poke_the_badger(message, context, attempts)
-        end
-      end
     end
 
     def self.shutdown(signal)

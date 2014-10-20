@@ -13,7 +13,7 @@ class WorkerTest < MiniTest::Test
           ConeyIsland::Worker.handle_job(@metadata,{
             'klass' => 'TestModel',
             'method_name' => :take_too_long,
-            'timeout' => 0.01
+            'timeout' => 0.0001
             },'my_job_id')
         end
         ConeyIsland::Worker.job_attempts['my_job_id'].must_equal 3
@@ -21,7 +21,7 @@ class WorkerTest < MiniTest::Test
       it "sends other exeptions to a notification service" do
         @poke_the_badger = MiniTest::Mock.new
         @poke_the_badger.expect :call, nil, [Exception,Hash]
-        ConeyIsland::Worker.stub(:poke_the_badger,@poke_the_badger) do
+        ConeyIsland.stub(:poke_the_badger,@poke_the_badger) do
           ConeyIsland::Worker.handle_job(@metadata,{
             'klass' => 'TestModel',
             'method_name' => :throw_an_error

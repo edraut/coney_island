@@ -18,10 +18,13 @@ module ConeyIsland
     end
 
     def self.submit!(args)
-      if @run_inline
-        self.handle_publish(args)
+      self.handle_connection unless @run_inline
+      if :all_cached_jobs == args
+        RequestStore.store[:jobs].delete_if do |job_args|
+          self.publish_job(job_args)
+        end
       else
-          self.handle_publish(args)
+        self.publish_job(args)
       end
     end
 
@@ -39,24 +42,38 @@ module ConeyIsland
 
     def self.handle_connection
       if ConeyIsland.single_amqp_connection?
-        ConeyIsland.handle_connection
+        Rails.logger.info("using single connection to RabbitMQ")
+        ConeyIsland.handle_connection(Rails.logger)
         @exchange = ConeyIsland.exchange
       else
-        @connection ||= AMQP.connect(self.amqp_parameters)
-        @channel  ||= AMQP::Channel.new(@connection)
-        @exchange = @channel.topic('coney_island')
+        self.submitter_connection
       end
     end
 
-    def self.handle_publish(args)
-      self.handle_connection unless @run_inline
-      if :all_cached_jobs == args
-        RequestStore.store[:jobs].delete_if do |job_args|
-          self.publish_job(job_args)
-        end
+    def self.submitter_connection
+      @connection ||= AMQP.connect(self.amqp_parameters)
+    rescue AMQP::TCPConnectionFailed => e
+      @tcp_connection_retries ||= 0
+        @tcp_connection_retries += 1
+      if @tcp_connection_retries >= 6
+        message = "Failed to connect to RabbitMQ 6 times, bailing out"
+        Rails.logger.error(message)
+        ConeyIsland.poke_the_badger(e, {
+          code_source: 'ConeyIsland::Submitter.submitter_connection',
+          reason: message}
+        )
       else
-        self.publish_job(args)
+        message = "Failed to connecto to RabbitMQ Attempt ##{@tcp_connection_retries} time(s), trying again in 10 seconds..."
+        Rails.logger.error(message)
+        ConeyIsland.poke_the_badger(e, {
+          code_source: 'ConeyIsland::Submitter.submitter_connection',
+          reason: message})
+        sleep(10)
+        retry
       end
+    else
+      @channel  ||= AMQP::Channel.new(@connection)
+      @exchange = @channel.topic('coney_island')
     end
 
     def self.publish_job(args)
