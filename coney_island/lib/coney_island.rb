@@ -40,7 +40,16 @@ module ConeyIsland
     @tcp_connection_retry_interval ||= 10
   end
 
+  def self.notifier
+    @notifier ||= "ConeyIsland::Notifiers::#{self.config[:notifier_service]}Notifier".constantize
+  end
+
   def self.handle_connection(log)
+    if self.config
+      log.info("ConeyIsland.handle_connection, notifier service is #{self.notifier}")
+    else
+      log.info("NO CONFIG FOUND!!!")
+    end
     @connection ||= AMQP.connect(self.amqp_parameters)
   rescue AMQP::TCPConnectionFailed => e
     self.tcp_connection_retries ||= 0
@@ -133,7 +142,7 @@ module ConeyIsland
 
   def self.poke_the_badger(message, context, attempts = 1)
     Timeout::timeout(3) do
-      @notifier.notify(message, context)
+      self.notifier.notify(message, context)
     end
   rescue
     if attempts <= 3
@@ -147,4 +156,6 @@ end
 require 'coney_island/notifiers/honeybadger_notifier'
 require 'coney_island/worker'
 require 'coney_island/submitter'
-
+if defined? ActiveJob::QueueAdapters
+  require 'coney_island/queue_adapters'
+end

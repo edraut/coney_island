@@ -44,8 +44,6 @@ module ConeyIsland
 
       self.log.level = self.config[:log_level]
       self.log.info("config: #{self.config}")
-
-      @notifier = "ConeyIsland::Notifiers::#{self.config[:notifier_service]}Notifier".constantize
     end
 
     def self.exchange
