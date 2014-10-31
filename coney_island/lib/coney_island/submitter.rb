@@ -107,7 +107,7 @@ module ConeyIsland
           work_queue = job_args.delete :work_queue
           work_queue ||= 'default'
           self.exchange.publish((job_args.to_json), routing_key: "carousels.#{work_queue}") do
-            RequestStore.store[:jobs].delete job_id if job_id.present?
+            RequestStore.store[:jobs].delete job_id if RequestStore.store[:jobs] && job_id.present?
           end
         end
         true
