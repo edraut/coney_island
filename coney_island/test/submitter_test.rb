@@ -26,5 +26,12 @@ class SubmitterTest < MiniTest::Test
         @exchange.verify
       end
     end
+    describe "error handling" do
+      it "handles argument errors for jobs" do
+        assert_raises(ConeyIsland::JobArgumentError) do
+          ConeyIsland::Submitter.publish_job([:not_a_class, :add_to_list, args: [[]]])
+        end
+      end
+    end
   end
 end

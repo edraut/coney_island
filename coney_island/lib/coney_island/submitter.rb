@@ -11,7 +11,8 @@ module ConeyIsland
 
     def self.submit(*args)
       if RequestStore.store[:cache_jobs]
-        RequestStore.store[:jobs].push args
+        job_id = SecureRandom.uuid
+        RequestStore.store[:jobs][job_id] = args
       else
         self.submit!(args)
       end
@@ -19,12 +20,21 @@ module ConeyIsland
 
     def self.submit!(args)
       self.handle_connection unless @run_inline
-      if :all_cached_jobs == args
-        RequestStore.store[:jobs].delete_if do |job_args|
-          self.publish_job(job_args)
+      begin
+        if :all_cached_jobs == args
+          Rails.logger.info("ConeyIsland::Submitter.submit! about to iterate over this many jobs: #{RequestStore.store[:jobs].length}")
+          RequestStore.store[:jobs].each do |job_id,job_args|
+            self.publish_job(job_args,job_id)
+          end
+        else
+          self.publish_job(args)
         end
-      else
-        self.publish_job(args)
+      rescue Exception => e
+        ConeyIsland.poke_the_badger(e,{
+          code_source: "ConeyIsland::Submitter.submit!",
+          message: "Error submitting job",
+          job_args: args
+          })
       end
     end
 
@@ -46,6 +56,7 @@ module ConeyIsland
         ConeyIsland.handle_connection(Rails.logger)
         @exchange = ConeyIsland.exchange
       else
+        Rails.logger.info("using independent submitter connection to RabbitMQ")
         self.submitter_connection
       end
     end
@@ -76,7 +87,11 @@ module ConeyIsland
       @exchange = @channel.topic('coney_island')
     end
 
-    def self.publish_job(args)
+    def self.amqp_connection
+      @connection
+    end
+
+    def self.publish_job(args, job_id = nil)
       if (args.first.is_a? Class or args.first.is_a? Module) and (args[1].is_a? String or args[1].is_a? Symbol) and args.last.is_a? Hash and 3 == args.length
         klass = args.shift
         klass = klass.name
@@ -91,15 +106,19 @@ module ConeyIsland
         else
           work_queue = job_args.delete :work_queue
           work_queue ||= 'default'
-          self.exchange.publish((job_args.to_json), routing_key: "carousels.#{work_queue}")
+          self.exchange.publish((job_args.to_json), routing_key: "carousels.#{work_queue}") do
+            RequestStore.store[:jobs].delete job_id if job_id.present?
+          end
         end
+        true
+      else
+        raise ConeyIsland::JobArgumentError.new
       end
-      true
     end
 
     def self.cache_jobs
       RequestStore.store[:cache_jobs] = true
-      RequestStore.store[:jobs] = []
+      RequestStore.store[:jobs] = {}
     end
 
     def self.flush_jobs
@@ -121,7 +140,7 @@ module ConeyIsland
 
     def self.publisher_shutdown
       EventMachine.add_periodic_timer(1) do
-        if RequestStore.store[:jobs] && (RequestStore.store[:jobs].length > 0)
+        if RequestStore.store[:jobs] && RequestStore.store[:jobs].length > 0
           Rails.logger.info("Waiting for #{RequestStore.store[:jobs].length} publishes to finish")
         else
           Rails.logger.info("Shutting down coney island publisher")
