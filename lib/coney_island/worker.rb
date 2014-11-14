@@ -94,7 +94,8 @@ module ConeyIsland
         retry
       end
     else
-      @channel  ||= AMQP::Channel.new(@connection)
+      sleep(0.5)
+      @channel ||= AMQP::Channel.new(@connection)
       @exchange = @channel.topic('coney_island')
     end
 
@@ -110,30 +111,52 @@ module ConeyIsland
       end
       defined?(ActiveRecord::Base) and
         ActiveRecord::Base.establish_connection
-      EventMachine.run do
 
-        Signal.trap('INT') do
-          self.shutdown('INT')
+      begin
+        EventMachine.run do
+
+          Signal.trap('INT') do
+            self.shutdown('INT')
+          end
+          Signal.trap('TERM') do
+            self.shutdown('TERM')
+          end
+
+          self.handle_connection
+          
+          self.log.info("Connecting to AMQP broker. Running #{AMQP::VERSION}")
+
+          #send a heartbeat every 15 seconds to avoid aggresive network configurations that close quiet connections
+          heartbeat_exchange = self.channel.fanout('coney_island_heartbeat')
+          EventMachine.add_periodic_timer(15) do
+            heartbeat_exchange.publish({:instance_name => @ticket})
+          end
+
+          self.channel.prefetch @prefetch_count
+          @queue = self.channel.queue(@full_instance_name, auto_delete: false, durable: true)
+          @queue.bind(self.exchange, routing_key: 'carousels.' + @ticket)
+          @queue.subscribe(:ack => true) do |metadata,payload|
+            self.handle_incoming_message(metadata,payload)
+          end
         end
-        Signal.trap('TERM') do
-          self.shutdown('TERM')
-        end
-
-        self.handle_connection
-        
-        self.log.info("Connecting to AMQP broker. Running #{AMQP::VERSION}")
-
-        #send a heartbeat every 15 seconds to avoid aggresive network configurations that close quiet connections
-        heartbeat_exchange = self.channel.fanout('coney_island_heartbeat')
-        EventMachine.add_periodic_timer(15) do
-          heartbeat_exchange.publish({:instance_name => @ticket})
-        end
-
-        self.channel.prefetch @prefetch_count
-        @queue = self.channel.queue(@full_instance_name, auto_delete: false, durable: true)
-        @queue.bind(self.exchange, routing_key: 'carousels.' + @ticket)
-        @queue.subscribe(:ack => true) do |metadata,payload|
-          self.handle_incoming_message(metadata,payload)
+      rescue AMQP::TCPConnectionFailed => e
+        @tcp_connection_retries ||= 0
+          @tcp_connection_retries += 1
+        if @tcp_connection_retries >= 6
+          message = "Failed to connect to RabbitMQ 6 times, bailing out"
+          self.log.error(message)
+          ConeyIsland.poke_the_badger(e, {
+            code_source: 'ConeyIsland::Worker.worker_connection',
+            reason: message}
+          )
+        else
+          message = "Failed to connecto to RabbitMQ Attempt ##{@tcp_connection_retries} time(s), trying again in 10 seconds..."
+          self.log.error(message)
+          ConeyIsland.poke_the_badger(e, {
+            code_source: 'ConeyIsland::Worker.worker_connection',
+            reason: message})
+          sleep(10)
+          retry
         end
       end
     end
