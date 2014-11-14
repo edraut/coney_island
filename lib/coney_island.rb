@@ -44,44 +44,6 @@ module ConeyIsland
     @notifier ||= "ConeyIsland::Notifiers::#{self.config[:notifier_service]}Notifier".constantize
   end
 
-  def self.handle_connection(log)
-    @connection ||= AMQP.connect(self.amqp_parameters)
-  rescue AMQP::TCPConnectionFailed => e
-    self.tcp_connection_retries ||= 0
-      self.tcp_connection_retries += 1
-    if self.tcp_connection_retries >= self.tcp_connection_retry_limit
-      message = "Failed to connect to RabbitMQ #{self.tcp_connection_retry_limit} times, bailing out"
-      log.error(message)
-      self.poke_the_badger(e, {
-        code_source: 'ConeyIsland.handle_connection',
-        reason: message}
-      )
-    else
-      message = "Failed to connecto to RabbitMQ Attempt ##{self.tcp_connection_retries} time(s), trying again in #{self.tcp_connection_retry_interval} seconds..."
-      log.error(message)
-      self.poke_the_badger(e, {
-        code_source: 'ConeyIsland.handle_connection',
-        reason: message})
-      sleep(self.tcp_connection_retry_interval)
-      retry
-    end
-  else
-    @channel  ||= AMQP::Channel.new(@connection)
-    self.exchange = @channel.topic('coney_island')
-  end
-
-  def self.exchange=(amqp_exchange)
-    @exchange ||= amqp_exchange
-  end
-
-  def self.exchange
-    @exchange
-  end
-
-  def self.channel
-    @channel
-  end
-
   def self.config=(config_hash)
     self.amqp_parameters = config_hash.delete :amqp_connection
     if !self.single_amqp_connection?

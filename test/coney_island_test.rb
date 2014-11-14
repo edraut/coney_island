@@ -41,7 +41,7 @@ class ConeyIslandTest < MiniTest::Test
       @fake_channel.expect :topic, nil, [String]
       AMQP::Channel.stub(:new,@fake_channel) do
         AMQP.stub(:connect, force_tcp_error) do
-          ConeyIsland.handle_connection(Logger.new(File.open(File::NULL, "w")))
+          ConeyIsland::Submitter.handle_connection
         end
       end
       @fake_channel.verify

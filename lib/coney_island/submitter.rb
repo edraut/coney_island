@@ -47,37 +47,30 @@ module ConeyIsland
     end
 
     def self.amqp_parameters
-      @amqp_parameters
-    end
-
-    def self.handle_connection
       if ConeyIsland.single_amqp_connection?
-        Rails.logger.info("using single connection to RabbitMQ")
-        ConeyIsland.handle_connection(Rails.logger)
-        @exchange = ConeyIsland.exchange
+        ConeyIsland.amqp_parameters
       else
-        Rails.logger.info("using independent submitter connection to RabbitMQ")
-        self.submitter_connection
+        @amqp_parameters
       end
     end
 
-    def self.submitter_connection
+    def self.handle_connection
       @connection ||= AMQP.connect(self.amqp_parameters)
     rescue AMQP::TCPConnectionFailed => e
-      @tcp_connection_retries ||= 0
-        @tcp_connection_retries += 1
-      if @tcp_connection_retries >= 6
-        message = "Failed to connect to RabbitMQ 6 times, bailing out"
+      ConeyIsland.tcp_connection_retries ||= 0
+        ConeyIsland.tcp_connection_retries += 1
+      if ConeyIsland.tcp_connection_retries >= ConeyIsland.tcp_connection_retry_limit
+        message = "Failed to connect to RabbitMQ #{ConeyIsland.tcp_connection_retry_limit} times, bailing out"
         Rails.logger.error(message)
         ConeyIsland.poke_the_badger(e, {
-          code_source: 'ConeyIsland::Submitter.submitter_connection',
+          code_source: 'ConeyIsland::Submitter.handle_connection',
           reason: message}
         )
       else
-        message = "Failed to connecto to RabbitMQ Attempt ##{@tcp_connection_retries} time(s), trying again in 10 seconds..."
+        message = "Failed to connecto to RabbitMQ Attempt ##{ConeyIsland.tcp_connection_retries} time(s), trying again in #{ConeyIsland.tcp_connection_retry_interval} seconds..."
         Rails.logger.error(message)
         ConeyIsland.poke_the_badger(e, {
-          code_source: 'ConeyIsland::Submitter.submitter_connection',
+          code_source: 'ConeyIsland::Submitter.handle_connection',
           reason: message})
         sleep(10)
         retry

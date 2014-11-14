@@ -59,46 +59,12 @@ module ConeyIsland
     end
 
     def self.amqp_parameters
-      @amqp_parameters
-    end
-
-    def self.handle_connection
       if ConeyIsland.single_amqp_connection?
-        ConeyIsland.handle_connection(self.log)
-        @exchange = ConeyIsland.exchange
-        @channel = ConeyIsland.channel
+        ConeyIsland.amqp_parameters
       else
-        self.worker_connection
+        @amqp_parameters
       end
     end
-
-    def self.worker_connection
-      @connection ||= AMQP.connect(self.amqp_parameters)
-    rescue AMQP::TCPConnectionFailed => e
-      @tcp_connection_retries ||= 0
-        @tcp_connection_retries += 1
-      if @tcp_connection_retries >= 6
-        message = "Failed to connect to RabbitMQ 6 times, bailing out"
-        self.log.error(message)
-        ConeyIsland.poke_the_badger(e, {
-          code_source: 'ConeyIsland::Worker.worker_connection',
-          reason: message}
-        )
-      else
-        message = "Failed to connecto to RabbitMQ Attempt ##{@tcp_connection_retries} time(s), trying again in 10 seconds..."
-        self.log.error(message)
-        ConeyIsland.poke_the_badger(e, {
-          code_source: 'ConeyIsland::Worker.worker_connection',
-          reason: message})
-        sleep(10)
-        retry
-      end
-    else
-      sleep(0.5)
-      @channel ||= AMQP::Channel.new(@connection)
-      @exchange = @channel.topic('coney_island')
-    end
-
 
     def self.start
       @child_count.times do
@@ -122,38 +88,40 @@ module ConeyIsland
             self.shutdown('TERM')
           end
 
-          self.handle_connection
-          
-          self.log.info("Connecting to AMQP broker. Running #{AMQP::VERSION}")
+          AMQP.connect(self.amqp_parameters) do |connection|
+            self.log.info("Connected to AMQP broker. Running #{AMQP::VERSION}")
+            @channel ||= AMQP::Channel.new(connection)
+            @exchange = @channel.topic('coney_island')
 
-          #send a heartbeat every 15 seconds to avoid aggresive network configurations that close quiet connections
-          heartbeat_exchange = self.channel.fanout('coney_island_heartbeat')
-          EventMachine.add_periodic_timer(15) do
-            heartbeat_exchange.publish({:instance_name => @ticket})
-          end
+            #send a heartbeat every 15 seconds to avoid aggresive network configurations that close quiet connections
+            heartbeat_exchange = self.channel.fanout('coney_island_heartbeat')
+            EventMachine.add_periodic_timer(15) do
+              heartbeat_exchange.publish({:instance_name => @ticket})
+            end
 
-          self.channel.prefetch @prefetch_count
-          @queue = self.channel.queue(@full_instance_name, auto_delete: false, durable: true)
-          @queue.bind(self.exchange, routing_key: 'carousels.' + @ticket)
-          @queue.subscribe(:ack => true) do |metadata,payload|
-            self.handle_incoming_message(metadata,payload)
+            self.channel.prefetch @prefetch_count
+            @queue = self.channel.queue(@full_instance_name, auto_delete: false, durable: true)
+            @queue.bind(self.exchange, routing_key: 'carousels.' + @ticket)
+            @queue.subscribe(:ack => true) do |metadata,payload|
+              self.handle_incoming_message(metadata,payload)
+            end
           end
         end
       rescue AMQP::TCPConnectionFailed => e
-        @tcp_connection_retries ||= 0
-          @tcp_connection_retries += 1
-        if @tcp_connection_retries >= 6
-          message = "Failed to connect to RabbitMQ 6 times, bailing out"
+        ConeyIsland.tcp_connection_retries ||= 0
+          ConeyIsland.tcp_connection_retries += 1
+        if ConeyIsland.tcp_connection_retries >= ConeyIsland.tcp_connection_retry_limit
+          message = "Failed to connect to RabbitMQ #{ConeyIsland.tcp_connection_retry_limit} times, bailing out"
           self.log.error(message)
           ConeyIsland.poke_the_badger(e, {
-            code_source: 'ConeyIsland::Worker.worker_connection',
+            code_source: 'ConeyIsland::Worker.start',
             reason: message}
           )
         else
-          message = "Failed to connecto to RabbitMQ Attempt ##{@tcp_connection_retries} time(s), trying again in 10 seconds..."
+          message = "Failed to connecto to RabbitMQ Attempt ##{ConeyIsland.tcp_connection_retries} time(s), trying again in #{ConeyIsland.tcp_connection_retry_interval} seconds..."
           self.log.error(message)
           ConeyIsland.poke_the_badger(e, {
-            code_source: 'ConeyIsland::Worker.worker_connection',
+            code_source: 'ConeyIsland::Worker.start',
             reason: message})
           sleep(10)
           retry
