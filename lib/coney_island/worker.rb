@@ -120,9 +120,6 @@ module ConeyIsland
         else
           message = "Failed to connecto to RabbitMQ Attempt ##{ConeyIsland.tcp_connection_retries} time(s), trying again in #{ConeyIsland.tcp_connection_retry_interval} seconds..."
           self.log.error(message)
-          ConeyIsland.poke_the_badger(e, {
-            code_source: 'ConeyIsland::Worker.start',
-            reason: message})
           sleep(10)
           retry
         end
