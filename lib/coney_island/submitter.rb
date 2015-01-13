@@ -19,22 +19,31 @@ module ConeyIsland
     end
 
     def self.submit!(args)
-      self.handle_connection unless @run_inline
-      begin
-        if :all_cached_jobs == args
-          Rails.logger.info("ConeyIsland::Submitter.submit! about to iterate over this many jobs: #{RequestStore.store[:jobs].length}")
-          RequestStore.store[:jobs].each do |job_id,job_args|
-            self.publish_job(job_args,job_id)
-          end
-        else
-          self.publish_job(args)
+      if @run_inline
+        self.submit_all!(args)
+      else
+        self.handle_connection
+        begin
+          self.submit_all!(args)
+        rescue Exception => e
+          Rails.logger.error(e)
+          ConeyIsland.poke_the_badger(e,{
+            code_source: "ConeyIsland::Submitter.submit!",
+            message: "Error submitting job",
+            job_args: args
+            })
         end
-      rescue Exception => e
-        ConeyIsland.poke_the_badger(e,{
-          code_source: "ConeyIsland::Submitter.submit!",
-          message: "Error submitting job",
-          job_args: args
-          })
+      end
+    end
+
+    def self.submit_all!(args)
+      if :all_cached_jobs == args
+        Rails.logger.info("ConeyIsland::Submitter.submit! about to iterate over this many jobs: #{RequestStore.store[:jobs].length}")
+        RequestStore.store[:jobs].each do |job_id,job_args|
+          self.publish_job(job_args,job_id)
+        end
+      else
+        self.publish_job(args)
       end
     end
 
