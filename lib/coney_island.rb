@@ -27,7 +27,7 @@ module ConeyIsland
   def self.tcp_connection_retry_limit=(limit)
     @tcp_connection_retry_limit = limit
   end
-  
+
   def self.tcp_connection_retry_limit
     @tcp_connection_retry_limit ||= 6
   end
@@ -35,7 +35,7 @@ module ConeyIsland
   def self.tcp_connection_retry_interval=(interval)
     @tcp_connection_retry_interval = interval
   end
-  
+
   def self.tcp_connection_retry_interval
     @tcp_connection_retry_interval ||= 10
   end
@@ -114,6 +114,4 @@ require 'coney_island/notifiers/honeybadger_notifier'
 require 'coney_island/worker'
 require 'coney_island/submitter'
 require 'coney_island/job_argument_error'
-if defined? ActiveJob::QueueAdapters
-  require 'coney_island/queue_adapters'
-end
+require 'coney_island/railtie' if defined?(Rails)
