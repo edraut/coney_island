@@ -89,6 +89,10 @@ module ConeyIsland
           end
 
           AMQP.connect(self.amqp_parameters) do |connection|
+            connection.on_tcp_connection_loss do |connection, settings|
+              # reconnect in 10 seconds, without enforcement
+              connection.reconnect(false, 10)
+            end
             self.log.info("Connected to AMQP broker. Running #{AMQP::VERSION}")
             @channel = AMQP::Channel.new(connection)
             @exchange = @channel.topic('coney_island')
