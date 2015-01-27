@@ -78,19 +78,19 @@ module ConeyIsland
       defined?(ActiveRecord::Base) and
         ActiveRecord::Base.establish_connection
 
-      EventMachine.run do
+      begin
+        EventMachine.run do
 
-        Signal.trap('INT') do
-          self.shutdown('INT')
-        end
-        Signal.trap('TERM') do
-          self.shutdown('TERM')
-        end
+          Signal.trap('INT') do
+            self.shutdown('INT')
+          end
+          Signal.trap('TERM') do
+            self.shutdown('TERM')
+          end
 
-        begin
           AMQP.connect(self.amqp_parameters) do |connection|
             self.log.info("Connected to AMQP broker. Running #{AMQP::VERSION}")
-            @channel = AMQP::Channel.new(connection)
+            @channel ||= AMQP::Channel.new(connection)
             @exchange = @channel.topic('coney_island')
 
             #send a heartbeat every 15 seconds to avoid aggresive network configurations that close quiet connections
@@ -106,22 +106,22 @@ module ConeyIsland
               self.handle_incoming_message(metadata,payload)
             end
           end
-        rescue AMQP::TCPConnectionFailed => e
-          ConeyIsland.tcp_connection_retries ||= 0
-            ConeyIsland.tcp_connection_retries += 1
-          if ConeyIsland.tcp_connection_retries >= ConeyIsland.tcp_connection_retry_limit
-            message = "Failed to connect to RabbitMQ #{ConeyIsland.tcp_connection_retry_limit} times, bailing out"
-            self.log.error(message)
-            ConeyIsland.poke_the_badger(e, {
-              code_source: 'ConeyIsland::Worker.start',
-              reason: message}
-            )
-          else
-            message = "Failed to connecto to RabbitMQ Attempt ##{ConeyIsland.tcp_connection_retries} time(s), trying again in #{ConeyIsland.tcp_connection_retry_interval} seconds..."
-            self.log.error(message)
-            sleep(10)
-            retry
-          end
+        end
+      rescue AMQP::TCPConnectionFailed => e
+        ConeyIsland.tcp_connection_retries ||= 0
+          ConeyIsland.tcp_connection_retries += 1
+        if ConeyIsland.tcp_connection_retries >= ConeyIsland.tcp_connection_retry_limit
+          message = "Failed to connect to RabbitMQ #{ConeyIsland.tcp_connection_retry_limit} times, bailing out"
+          self.log.error(message)
+          ConeyIsland.poke_the_badger(e, {
+            code_source: 'ConeyIsland::Worker.start',
+            reason: message}
+          )
+        else
+          message = "Failed to connecto to RabbitMQ Attempt ##{ConeyIsland.tcp_connection_retries} time(s), trying again in #{ConeyIsland.tcp_connection_retry_interval} seconds..."
+          self.log.error(message)
+          sleep(10)
+          retry
         end
       end
     end
@@ -141,7 +141,7 @@ module ConeyIsland
         end
       rescue Timeout::Error => e
         ConeyIsland.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args, reason: 'timeout in subscribe code before calling job method'})
-      rescue StandardError => e
+      rescue Exception => e
         ConeyIsland.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args})
         self.log.error("ConeyIsland code error, not application code:\n#{e.inspect}\nARGS: #{args}")
       end
@@ -166,7 +166,7 @@ module ConeyIsland
             self.handle_job(metadata,args,job_id)
           end
         end
-      rescue StandardError => e
+      rescue Exception => e
         ConeyIsland.poke_the_badger(e, {work_queue: @ticket, job_payload: args})
         self.log.error("Error executing #{args['klass']}##{args['method_name']} #{job_id} for id #{args['instance_id']} with args #{args}:")
         self.log.error(e.message)

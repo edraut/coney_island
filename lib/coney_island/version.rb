@@ -1,3 +1,3 @@
 module ConeyIsland
-  VERSION = "0.7"
+  VERSION = "0.6"
 end
