@@ -90,7 +90,7 @@ module ConeyIsland
 
           AMQP.connect(self.amqp_parameters) do |connection|
             self.log.info("Connected to AMQP broker. Running #{AMQP::VERSION}")
-            @channel ||= AMQP::Channel.new(connection)
+            @channel = AMQP::Channel.new(connection)
             @exchange = @channel.topic('coney_island')
 
             #send a heartbeat every 15 seconds to avoid aggresive network configurations that close quiet connections
