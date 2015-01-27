@@ -21,6 +21,10 @@ module ConeyIsland
       @job_attempts ||= {}
     end
 
+    def self.clear_job_attempts
+      @job_attempts = {}
+    end
+
     def self.initialize_background
       ENV['NEW_RELIC_AGENT_ENABLED'] = 'false'
       ENV['NEWRELIC_ENABLE'] = 'false'
@@ -88,10 +92,11 @@ module ConeyIsland
             self.shutdown('TERM')
           end
 
-          AMQP.connect(self.amqp_parameters) do |connection|
+          AMQP.connect(self.amqp_parameters.merge(heartbeat: 15)) do |connection|
             connection.on_tcp_connection_loss do |connection, settings|
-              # reconnect in 10 seconds, without enforcement
-              connection.reconnect(false, 10)
+              # since we lost the connection, rabbitMQ will resend all jobs we didn't finish
+              # so drop them and restart
+              self.abandon_and_shutdown
             end
             self.log.info("Connected to AMQP broker. Running #{AMQP::VERSION}")
             @channel = AMQP::Channel.new(connection)
@@ -101,6 +106,7 @@ module ConeyIsland
             heartbeat_exchange = self.channel.fanout('coney_island_heartbeat')
             EventMachine.add_periodic_timer(15) do
               heartbeat_exchange.publish({:instance_name => @ticket})
+              self.handle_missing_children
             end
 
             self.channel.prefetch @prefetch_count
@@ -203,6 +209,22 @@ module ConeyIsland
       metadata.ack
       self.log.info("finished job #{job_id}")
       self.job_attempts.delete job_id
+    end
+
+    def self.handle_missing_children
+      @child_pids.each do |child_pid|
+        begin
+          Process.kill 0, child_pid
+        rescue Errno::ESRCH => e
+          @child_pids.push Process.spawn("bundle exec coney_island #{@ticket}")
+        end
+      end
+    end
+
+    def self.abandon_and_shutdown
+      self.log.info("Lost RabbitMQ connection, abandoning current jobs and restarting")
+      self.clear_job_attempts
+      self.shutdown('TERM')
     end
 
     def self.shutdown(signal)
