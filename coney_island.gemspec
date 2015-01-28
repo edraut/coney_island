@@ -22,7 +22,7 @@ Gem::Specification.new do |s|
   s.add_dependency "rails", ">= 4.0.1"
   s.add_dependency "amqp", ">= 1.5.0"
   s.add_dependency "request_store", ">= 1.0.8"
-  s.add_dependency "eventmachine", "1.0.3"
+  s.add_dependency "eventmachine"
 
   s.add_development_dependency "sqlite3"
   s.add_development_dependency "minitest"

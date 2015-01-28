@@ -97,12 +97,7 @@ module ConeyIsland
             self.shutdown('TERM')
           end
 
-          AMQP.connect(self.amqp_parameters.merge(heartbeat: 15)) do |connection|
-            connection.on_tcp_connection_loss do |connection, settings|
-              # since we lost the connection, rabbitMQ will resend all jobs we didn't finish
-              # so drop them and restart
-              self.abandon_and_shutdown
-            end
+          AMQP.connect(self.amqp_parameters) do |connection|
             self.log.info("Connected to AMQP broker. Running #{AMQP::VERSION}")
             @channel = AMQP::Channel.new(connection)
             @exchange = @channel.topic('coney_island')
