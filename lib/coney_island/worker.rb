@@ -72,7 +72,7 @@ module ConeyIsland
       if @amqp_parameters.is_a? String
         @amqp_parameters = AMQP::Settings.parse_connection_uri(@amqp_parameters)
       end
-      @amqp_parameters.merge!(heartbeat: 15)
+      @amqp_parameters
     end
 
     def self.start
