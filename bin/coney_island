@@ -1,9 +1,9 @@
 #!/usr/bin/env ruby
 
+ENV['ConeyIslandWorker'] = 'true'
+
 $LOAD_PATH.push '.'
 require 'config/environment.rb'
-
-## Copyright 2011 Eric Draut, all rights reserved
 
 ConeyIsland.initialize_background
 ConeyIsland.start_worker
