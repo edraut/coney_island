@@ -101,6 +101,14 @@ module ConeyIsland
             self.log.info("Connected to AMQP broker. Running #{AMQP::VERSION}")
             @channel = AMQP::Channel.new(connection)
             @exchange = @channel.topic('coney_island')
+            #Handle a lost connection to rabbitMQ
+            connection.on_tcp_connection_loss do |connection, settings|
+              # since we lost the connection, rabbitMQ will resend all jobs we didn't finish
+              # so drop them and restart
+              unless @shutting_down
+                self.abandon_and_shutdown
+              end
+            end
 
             #send a heartbeat every 15 seconds to avoid aggresive network configurations that close quiet connections
             heartbeat_exchange = self.channel.fanout('coney_island_heartbeat')
@@ -222,17 +230,17 @@ module ConeyIsland
     end
 
     def self.abandon_and_shutdown
-      self.log.info("Lost RabbitMQ connection, abandoning current jobs and restarting")
+      self.log.info("Lost RabbitMQ connection, abandoning current jobs and shutting down")
       self.clear_job_attempts
       self.shutdown('TERM')
     end
 
     def self.shutdown(signal)
-      shutdown_time = Time.now
+      @shutting_down = true
       @child_pids.each do |child_pid|
         Process.kill(signal, child_pid)
       end
-      @queue.unsubscribe
+      @queue.unsubscribe rescue nil
       EventMachine.add_periodic_timer(1) do
         if self.job_attempts.any?
           self.log.info("Waiting for #{self.job_attempts.length} requests to finish")

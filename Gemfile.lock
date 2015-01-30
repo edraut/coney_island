@@ -1,9 +1,9 @@
 PATH
   remote: .
   specs:
-    coney_island (0.7.8)
+    coney_island (0.8)
       amqp (>= 1.5.0)
-      eventmachine (= 1.0.3)
+      eventmachine
       rails (>= 4.0.1)
       request_store (>= 1.0.8)
 
@@ -52,7 +52,7 @@ GEM
     arel (6.0.0)
     builder (3.2.2)
     erubis (2.7.0)
-    eventmachine (1.0.3)
+    eventmachine (1.0.4)
     globalid (0.3.0)
       activesupport (>= 4.1.0)
     hike (1.2.3)
