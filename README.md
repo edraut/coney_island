@@ -1,4 +1,4 @@
-## ConeyIsland
+## coney_island
 
 ### Documentation
 See the full docs [here](http://edraut.github.io/coney_island/)
