@@ -57,6 +57,14 @@ module ConeyIsland
     ConeyIsland::Worker.config
   end
 
+  def self.delay_seed
+    @delay_seed ||= 2
+  end
+
+  def self.delay_seed=(seed)
+    @delay_seed = seed
+  end
+
   def self.single_amqp_connection?
     !!self.amqp_parameters
   end
@@ -71,6 +79,10 @@ module ConeyIsland
 
   def self.run_inline
     ConeyIsland::Submitter.run_inline
+  end
+
+  def self.running_inline?
+    ConeyIsland::Submitter.running_inline?
   end
 
   def self.stop_running_inline
@@ -112,6 +124,8 @@ end
 
 require 'coney_island/notifiers/honeybadger_notifier'
 require 'coney_island/worker'
+require 'coney_island/job'
 require 'coney_island/submitter'
 require 'coney_island/job_argument_error'
 require 'coney_island/railtie' if defined?(Rails)
+require 'coney_island/performer'

@@ -9,6 +9,10 @@ module ConeyIsland
       @run_inline = false
     end
 
+    def self.running_inline?
+      @run_inline
+    end
+
     def self.submit(*args)
       if RequestStore.store[:cache_jobs]
         job_id = SecureRandom.uuid
@@ -93,19 +97,24 @@ module ConeyIsland
     def self.publish_job(args, job_id = nil)
       if (args.first.is_a? Class or args.first.is_a? Module) and (args[1].is_a? String or args[1].is_a? Symbol) and args.last.is_a? Hash and 3 == args.length
         klass = args.shift
-        klass = klass.name
+        klass_name = klass.name
+
         method_name = args.shift
         job_args = args.shift
         job_args ||= {}
-        job_args['klass'] = klass
+        job_args['klass'] = klass_name
         job_args['method_name'] = method_name
         if @run_inline
           job_args.stringify_keys!
-          ConeyIsland::Worker.execute_job_method(job_args)
+          job = ConeyIsland::Job.new(nil, job_args)
+          job.handle_job
         else
           work_queue = job_args.delete :work_queue
+          if klass.respond_to? :coney_island_settings
+            work_queue ||= klass.coney_island_settings[:work_queue]
+          end
           work_queue ||= 'default'
-          self.exchange.publish((job_args.to_json), routing_key: "carousels.#{work_queue}") do
+          self.exchange.publish(job_args.to_json, {routing_key: "carousels.#{work_queue}"}) do
             RequestStore.store[:jobs].delete job_id if RequestStore.store[:jobs] && job_id.present?
           end
         end

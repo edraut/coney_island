@@ -18,6 +18,21 @@ if ActiveSupport::TestCase.method_defined?(:fixture_path=)
   ActiveSupport::TestCase.fixture_path = File.expand_path("../fixtures", __FILE__)
 end
 
+class MiniTest::Test
+  def self.messages
+    @@messages[Thread.current.object_id] ||= {}
+  end
+
+  def self.clear_messages
+    @@messages ||= {}
+    @@messages[Thread.current.object_id] = {}
+  end
+
+  def setup
+    self.class.clear_messages
+  end
+end
+
 class TestModel
 
   def self.add_to_list(array)

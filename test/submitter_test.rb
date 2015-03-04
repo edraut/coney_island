@@ -4,13 +4,13 @@ class SubmitterTest < MiniTest::Test
   describe "ConeyIsland::Submitter" do
     describe "running jobs inline" do
       it "calls the worker directly" do
-        @execute_job_method = Minitest::Mock.new
-        @execute_job_method.expect :call, nil, [Hash]
-        ConeyIsland::Worker.stub(:execute_job_method,@execute_job_method) do
+        @job = Minitest::Mock.new
+        @job.expect :handle_job, nil
+        ConeyIsland::Job.stub(:new,@job) do
           ConeyIsland::Submitter.run_inline
           ConeyIsland::Submitter.submit(TestModel, :add_to_list, args: [[]])
         end
-        @execute_job_method.verify
+        @job.verify
       end
     end
     describe "running jobs in the background" do

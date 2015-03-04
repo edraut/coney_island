@@ -17,12 +17,24 @@ module ConeyIsland
       @log = log_thing
     end
 
-    def self.job_attempts
-      @job_attempts ||= {}
+    def self.running_jobs
+      @running_jobs ||= []
     end
 
-    def self.clear_job_attempts
-      @job_attempts = {}
+    def self.clear_running_jobs
+      @running_jobs = []
+    end
+
+    def self.ticket
+      @ticket
+    end
+
+    def self.ticket=(some_ticket)
+      @ticket = some_ticket
+    end
+
+    def self.reset_child_pids
+      @child_pids = []
     end
 
     def self.initialize_background
@@ -42,7 +54,7 @@ module ConeyIsland
       @worker_count = @instance_config[:worker_count] if @instance_config
       @worker_count ||= 1
       @child_count = @worker_count - 1
-      @child_pids = []
+      reset_child_pids
 
       @full_instance_name = @ticket
 
@@ -146,16 +158,15 @@ module ConeyIsland
 
     def self.handle_incoming_message(metadata,payload)
       begin
-        job_id = SecureRandom.uuid
-        self.job_attempts[job_id] = 1
         args = JSON.parse(payload)
-        self.log.info ("Starting job #{job_id}: #{args}")
-        if args.has_key? 'delay'
-          EventMachine.add_timer(args['delay'].to_i) do
-            self.handle_job(metadata,args,job_id)
+        job = Job.new(metadata, args)
+        self.running_jobs << job
+        if job.delay.present?
+          EventMachine.add_timer(job.delay) do
+            job.handle_job
           end
         else
-          self.handle_job(metadata,args,job_id)
+          job.handle_job
         end
       rescue Timeout::Error => e
         ConeyIsland.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args, reason: 'timeout in subscribe code before calling job method'})
@@ -163,60 +174,6 @@ module ConeyIsland
         ConeyIsland.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args})
         self.log.error("ConeyIsland code error, not application code:\n#{e.inspect}\nARGS: #{args}")
       end
-    end
-
-    def self.handle_job(metadata,args,job_id)
-      timeout = args['timeout']
-      timeout ||= BG_TIMEOUT_SECONDS
-      begin
-        Timeout::timeout(timeout) do
-          self.execute_job_method(args)
-        end
-      rescue Timeout::Error => e
-        if self.job_attempts.has_key? job_id
-          if self.job_attempts[job_id] >= 3
-            self.log.error("Request #{job_id} timed out after #{timeout} seconds, bailing out after 3 attempts")
-            self.finalize_job(metadata,job_id)
-            ConeyIsland.poke_the_badger(e, {work_queue: @ticket, job_payload: args, reason: 'Bailed out after 3 attempts'})
-          else
-            self.log.error("Request #{job_id} timed out after #{timeout} seconds on attempt number #{self.job_attempts[job_id]}, retrying...")
-            self.job_attempts[job_id] += 1
-            self.handle_job(metadata,args,job_id)
-          end
-        end
-      rescue Exception => e
-        ConeyIsland.poke_the_badger(e, {work_queue: @ticket, job_payload: args})
-        self.log.error("Error executing #{args['klass']}##{args['method_name']} #{job_id} for id #{args['instance_id']} with args #{args}:")
-        self.log.error(e.message)
-        self.log.error(e.backtrace.join("\n"))
-        self.finalize_job(metadata,job_id)
-      else
-        self.finalize_job(metadata,job_id)
-      end
-    end
-
-    def self.execute_job_method(args)
-      class_name = args['klass']
-      method_name = args['method_name']
-      klass = class_name.constantize
-      method_args = args['args']
-      if args.has_key? 'instance_id'
-        instance_id = args['instance_id']
-        object = klass.find(instance_id)
-      else
-        object = klass
-      end
-      if method_args and method_args.length > 0
-        object.send method_name, *method_args
-      else
-        object.send method_name
-      end
-    end
-
-    def self.finalize_job(metadata,job_id)
-      metadata.ack
-      self.log.info("finished job #{job_id}")
-      self.job_attempts.delete job_id
     end
 
     def self.handle_missing_children
@@ -231,7 +188,7 @@ module ConeyIsland
 
     def self.abandon_and_shutdown
       self.log.info("Lost RabbitMQ connection, abandoning current jobs and shutting down")
-      self.clear_job_attempts
+      self.clear_running_jobs
       self.shutdown('TERM')
     end
 
@@ -242,8 +199,8 @@ module ConeyIsland
       end
       @queue.unsubscribe rescue nil
       EventMachine.add_periodic_timer(1) do
-        if self.job_attempts.any?
-          self.log.info("Waiting for #{self.job_attempts.length} requests to finish")
+        if self.running_jobs.any?
+          self.log.info("Waiting for #{self.running_jobs.length} requests to finish")
         else
           self.log.info("Shutting down coney island #{@ticket}")
           EventMachine.stop
