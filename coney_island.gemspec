@@ -7,7 +7,7 @@ require "coney_island/version"
 Gem::Specification.new do |s|
   s.name        = "coney_island"
   s.version     = ConeyIsland::VERSION
-  s.authors     = ["Eric Draut","Adam Bialek"]
+  s.authors     = ["Eric Draut","Adam Bialek","Leonardo Bighetti"]
   s.email       = ["edraut@gmail.com"]
   s.homepage    = "http://edraut.github.io/coney_island/"
   s.summary     = "Want guaranteed delivery between your queue and your workers using ACKs? How about load-balancing? Would job-specific timeouts be nice? Throw in all the features other background worker systems offer and you must have a ticket to ride at Coney Island."
