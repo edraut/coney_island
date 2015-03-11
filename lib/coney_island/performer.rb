@@ -5,7 +5,22 @@ module ConeyIsland
       base.extend ClassMethods
     end
 
+    def method_missing(method_name, *args)
+      method_str = method_name.to_s
+      if method_str =~ /.*_async$/
+        synchronous_method = method_str.sub(/_async$/, '')
+        if self.respond_to?(:id) && self.class.respond_to?(:find)
+          ConeyIsland.submit(self.class, synchronous_method, instance_id: self.id, args: args)
+        else
+          ConeyIsland.submit(self.class, synchronous_method, singleton: true, args: args)
+        end
+      else
+        super
+      end
+    end
+
     module ClassMethods
+
       def set_background_defaults(work_queue: nil, delay: nil, timeout: nil)
         self.coney_island_settings[:work_queue] = work_queue
         self.coney_island_settings[:delay] = delay
@@ -16,25 +31,16 @@ module ConeyIsland
         @coney_island_settings ||= {}
       end
 
-      def create_instance_async_methods(*synchronous_methods)
-        synchronous_methods.each do |synchronous_method|
-          define_method("#{synchronous_method}_async") do |*args|
-            unless self.respond_to? :id
-              raise StandardError.new(
-                "#{synchronous_method} is not an instance method, ConeyIsland can't async it via :create_instance_async_methods")
-            end
-            ConeyIsland.submit(self.class, synchronous_method, instance_id: self.id, args: args)
-          end
+      def method_missing(method_name, *args)
+        method_str = method_name.to_s
+        if method_str =~ /.*_async$/
+          synchronous_method = method_str.sub(/_async$/, '')
+          ConeyIsland.submit(self, synchronous_method, args: args)
+        else
+          super
         end
       end
 
-      def create_class_async_methods(*synchronous_methods)
-        synchronous_methods.each do |synchronous_method|
-          define_singleton_method("#{synchronous_method}_async") do |*args|
-            ConeyIsland.submit(self, synchronous_method, args: args)
-          end
-        end
-      end
     end
 
   end

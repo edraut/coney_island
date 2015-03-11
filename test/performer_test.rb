@@ -57,25 +57,40 @@ class PerformerTest < MiniTest::Test
   end
 
   describe 'async methods' do
-    it 'creates async instance methods' do
+    it 'responds to async instance methods' do
       my_performer = MyPerformer.new(7)
       ConeyIsland.run_inline
       my_performer.set_color_async 'sage'
       my_performer.color.must_equal 'sage'
     end
-    it 'creates async class methods' do
+    it 'reponds to async class methods' do
       ConeyIsland.run_inline
       MyPerformer.set_tone_async 'contemplative'
       MyPerformer.tone.must_equal 'contemplative'
     end
+    it 'responds to async methods on singletons' do
+      my_singleton = MySingleton.new
+      ConeyIsland.run_inline
+      singleton_mock = Minitest::Mock.new
+      singleton_mock.expect :perform, nil, ['interesting stuff']
+      MySingleton.stub(:new, singleton_mock) do
+        my_singleton.perform_async 'interesting stuff'
+      end
+      singleton_mock.verify
+    end
+  end
+end
+
+class MySingleton
+  include ConeyIsland::Performer
+
+  def perform(arg)
   end
 end
 
 class MyPerformer
   include ConeyIsland::Performer
   set_background_defaults work_queue: 'cyclone', delay: 1, timeout: 5
-  create_class_async_methods :set_tone
-  create_instance_async_methods :set_color
 
   def self.instances
     @instances ||= {}

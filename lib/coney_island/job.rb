@@ -11,6 +11,7 @@ module ConeyIsland
       @timeout = args['timeout']
       @method_name = args['method_name']
       @instance_id = args['instance_id']
+      @singleton = args['singleton']
       @class_name = args['klass']
       @klass = @class_name.constantize
       @method_args = args['args']
@@ -25,6 +26,8 @@ module ConeyIsland
       @timeout ||= BG_TIMEOUT_SECONDS
       if @instance_id.present?
         @object = @klass.find(@instance_id)
+      elsif @singleton
+        @object = @klass.new
       else
         @object = @klass
       end
