@@ -63,6 +63,9 @@ module ConeyIsland
         ConeyIsland.submit(self.klass, self.method_name, self.resubmit_args)
       end
     rescue Exception => e
+      log.error("Error executing #{self.class_name}##{self.method_name} #{self.id} for id #{self.instance_id} with args #{self.args}:")
+      log.error(e.message)
+      log.error(e.backtrace.join("\n"))
       if retry_on_exception && (self.attempts < self.retry_limit)
         self.attempts += 1
         ConeyIsland.poke_the_badger(e, {work_queue: self.ticket, job_payload: self.args, attempt_count: self.attempts})
@@ -72,9 +75,6 @@ module ConeyIsland
         ConeyIsland.poke_the_badger(e, {work_queue: self.ticket, job_payload: self.args})
         log.error("Bailing out after error on final attempt ##{self.attempts}:")
       end
-      log.error("Error executing #{self.class_name}##{self.method_name} #{self.id} for id #{self.instance_id} with args #{self.args}:")
-      log.error(e.message)
-      log.error(e.backtrace.join("\n"))
     ensure
       finalize_job
     end
