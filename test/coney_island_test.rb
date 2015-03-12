@@ -39,6 +39,7 @@ class ConeyIslandTest < MiniTest::Test
       ConeyIsland.tcp_connection_retry_interval = 0
       @fake_channel = MiniTest::Mock.new
       @fake_channel.expect :topic, nil, [String]
+      @fake_channel.expect :topic, nil, [String]
       AMQP::Channel.stub(:new,@fake_channel) do
         AMQP.stub(:connect, force_tcp_error) do
           ConeyIsland::Submitter.handle_connection

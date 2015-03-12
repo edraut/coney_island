@@ -114,8 +114,8 @@ module ConeyIsland
         job_args ||= {}
         job_args['klass'] = klass_name
         job_args['method_name'] = method_name
+        job_args.stringify_keys!
         if @run_inline
-          job_args.stringify_keys!
           job = ConeyIsland::Job.new(nil, job_args)
           job.handle_job
         else
@@ -128,7 +128,8 @@ module ConeyIsland
           if klass.respond_to? :coney_island_settings
             delay ||= klass.coney_island_settings[:delay]
           end
-          if delay
+          if delay && delay.to_i > 0
+            puts 'delaying...'
             @delay_queue[work_queue] ||= {}
             unless @delay_queue[work_queue][delay].present?
               @delay_queue[work_queue][delay] ||= self.channel.queue(

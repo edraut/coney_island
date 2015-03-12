@@ -23,8 +23,6 @@ class PerformerTest < MiniTest::Test
       job.timeout.must_equal 10
     end
     it 'sets work queue for the class' do
-      capture_publish = proc do |payload,options|
-      end
       @exchange = Minitest::Mock.new
       def @exchange.publish(payload,options,&blk)
         ::PerformerTest.messages[:publish_hash] = options
@@ -32,15 +30,13 @@ class PerformerTest < MiniTest::Test
       ConeyIsland::Submitter.stub(:handle_connection, nil) do
         ConeyIsland::Submitter.stub(:exchange, @exchange) do
           ConeyIsland::Submitter.stop_running_inline
-          ConeyIsland::Submitter.submit(MyPerformer, :add_to_list, args: [[]])
+          ConeyIsland::Submitter.submit(MyPerformer, :perform, args: [], delay: 0)
         end
       end
       @exchange.verify
       ::PerformerTest.messages[:publish_hash][:routing_key].must_equal "carousels.cyclone"
     end
     it 'overrides the class work queue with the job-level work queue' do
-      capture_publish = proc do |payload,options|
-      end
       @exchange = Minitest::Mock.new
       def @exchange.publish(payload,options,&blk)
         ::PerformerTest.messages[:publish_hash] = options
@@ -48,7 +44,7 @@ class PerformerTest < MiniTest::Test
       ConeyIsland::Submitter.stub(:handle_connection, nil) do
         ConeyIsland::Submitter.stub(:exchange, @exchange) do
           ConeyIsland::Submitter.stop_running_inline
-          ConeyIsland::Submitter.submit(MyPerformer, :add_to_list, work_queue: 'boardwalk', args: [[]])
+          ConeyIsland::Submitter.submit(MyPerformer, :add_to_list, work_queue: 'boardwalk', args: [[]], delay: 0)
         end
       end
       @exchange.verify
