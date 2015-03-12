@@ -45,6 +45,7 @@ class JobTest < MiniTest::Test
       end
 
       it "bails out on timeout if retry limit reached" do
+        ConeyIsland.stop_running_inline
         job = ConeyIsland::Job.new(@metadata,
           { 'klass' => 'TestModel',
             'method_name' => :take_too_long,
@@ -79,6 +80,7 @@ class JobTest < MiniTest::Test
       end
 
       it "bails out on exception if retry_on_exception set and retry_limit reached" do
+        ConeyIsland.stop_running_inline
         job = ConeyIsland::Job.new(@metadata,
           { 'klass' => 'TestModel',
             'method_name' => :throw_an_error,
@@ -96,6 +98,7 @@ class JobTest < MiniTest::Test
       end
 
       it "bails out on exception if retry_on_exception not set" do
+        ConeyIsland.stop_running_inline
         job = ConeyIsland::Job.new(@metadata,
           { 'klass' => 'TestModel',
             'method_name' => :throw_an_error }

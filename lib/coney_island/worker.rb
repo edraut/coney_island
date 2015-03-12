@@ -25,6 +25,10 @@ module ConeyIsland
       @running_jobs = []
     end
 
+    def self.delayed_jobs
+      @delayed_jobs ||= []
+    end
+
     def self.ticket
       @ticket
     end
@@ -160,9 +164,11 @@ module ConeyIsland
       begin
         args = JSON.parse(payload)
         job = Job.new(metadata, args)
-        self.running_jobs << job
         if job.delay.present?
+          self.delayed_jobs << job
+          job.delay_job
           EventMachine.add_timer(job.delay) do
+            job.activate_after_delay
             job.handle_job
           end
         else
@@ -198,6 +204,9 @@ module ConeyIsland
         Process.kill(signal, child_pid)
       end
       @queue.unsubscribe rescue nil
+      self.delayed_jobs.each do |delayed_job|
+        delayed_job.requeue_delay
+      end
       EventMachine.add_periodic_timer(1) do
         if self.running_jobs.any?
           self.log.info("Waiting for #{self.running_jobs.length} requests to finish")

@@ -50,6 +50,7 @@ module ConeyIsland
     end
 
     def handle_job
+      ConeyIsland::Worker.running_jobs << self
       Timeout::timeout(timeout) do
         execute_job_method
       end
@@ -67,28 +68,63 @@ module ConeyIsland
       log.error(e.message)
       log.error(e.backtrace.join("\n"))
       if retry_on_exception && (self.attempts < self.retry_limit)
-        self.attempts += 1
         ConeyIsland.poke_the_badger(e, {work_queue: self.ticket, job_payload: self.args, attempt_count: self.attempts})
+        log.error("Resubmitting #{self.id} after error on attempt ##{self.attempts}")
+        self.attempts += 1
         ConeyIsland.submit(self.klass, self.method_name, self.resubmit_args)
-        log.error("Resubmitting after error on attempt ##{self.attempts}:")
       else
         ConeyIsland.poke_the_badger(e, {work_queue: self.ticket, job_payload: self.args})
-        log.error("Bailing out after error on final attempt ##{self.attempts}:")
+        log.error("Bailing out on #{self.id} after error on final attempt ##{self.attempts}:")
       end
     ensure
       finalize_job
     end
 
+    def next_attempt_delay
+      if self.delaying?
+        time_delayed = (Time.now - self.delay_start).round
+        new_delay = self.delay - time_delayed
+      else
+        ConeyIsland.delay_seed**(self.attempts - 1)
+      end
+    end
+
     def resubmit_args
       args.select{|key,val| ['timeout','retry_on_exception','retry_limit','args','instance_id'].include? key}.merge(
-        'attempt_count' => self.attempts, 'work_queue' => self.ticket, 'delay' => ConeyIsland.delay_seed**(self.attempts - 1))
+        'attempt_count' => self.attempts, 'work_queue' => self.ticket, 'delay' => self.next_attempt_delay)
     end
 
     def finalize_job
-      metadata.ack unless ConeyIsland.running_inline?
+      metadata.ack if !self.acked? && !ConeyIsland.running_inline?
       log.info("finished job #{id}")
       ConeyIsland::Worker.running_jobs.delete self
     end
 
+    def delaying?
+      @delaying
+    end
+
+    def acked?
+      @acked
+    end
+
+    def activate_after_delay
+      @delaying = false
+      ConeyIsland::Worker.delayed_jobs.delete self
+    end
+
+    def delay_job
+      @delaying = true
+      ConeyIsland::Worker.delayed_jobs << self
+      unless ConeyIsland.running_inline?
+        @acked = true
+        metadata.ack
+      end
+      log.info("delaying job #{id} for #{self.delay} seconds")
+    end
+
+    def requeue_delay
+      ConeyIsland.submit(self.klass, self.method_name, self.resubmit_args)
+    end
   end
 end
