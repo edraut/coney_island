@@ -81,12 +81,7 @@ module ConeyIsland
     end
 
     def next_attempt_delay
-      if self.delaying?
-        time_delayed = (Time.now - self.delay_start).round
-        new_delay = self.delay - time_delayed
-      else
-        ConeyIsland.delay_seed**(self.attempts - 1)
-      end
+      ConeyIsland.delay_seed**(self.attempts - 1)
     end
 
     def resubmit_args
@@ -95,36 +90,10 @@ module ConeyIsland
     end
 
     def finalize_job
-      metadata.ack if !self.acked? && !ConeyIsland.running_inline?
+      metadata.ack if !ConeyIsland.running_inline?
       log.info("finished job #{id}")
       ConeyIsland::Worker.running_jobs.delete self
     end
 
-    def delaying?
-      @delaying
-    end
-
-    def acked?
-      @acked
-    end
-
-    def activate_after_delay
-      @delaying = false
-      ConeyIsland::Worker.delayed_jobs.delete self
-    end
-
-    def delay_job
-      @delaying = true
-      ConeyIsland::Worker.delayed_jobs << self
-      unless ConeyIsland.running_inline?
-        @acked = true
-        metadata.ack
-      end
-      log.info("delaying job #{id} for #{self.delay} seconds")
-    end
-
-    def requeue_delay
-      ConeyIsland.submit(self.klass, self.method_name, self.resubmit_args)
-    end
   end
 end

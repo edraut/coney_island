@@ -51,8 +51,16 @@ module ConeyIsland
       end
     end
 
+    def self.channel
+      @channel
+    end
+
     def self.exchange
       @exchange
+    end
+
+    def self.delay_exchange
+      @delay_exchange
     end
 
     def self.amqp_parameters=(params)
@@ -86,8 +94,10 @@ module ConeyIsland
         retry
       end
     else
-      @channel  ||= AMQP::Channel.new(@connection)
+      @channel ||= AMQP::Channel.new(@connection)
       @exchange = @channel.topic('coney_island')
+      @delay_exchange = @channel.topic('coney_island_delay')
+      @delay_queue = {}
     end
 
     def self.amqp_connection
@@ -109,13 +119,30 @@ module ConeyIsland
           job = ConeyIsland::Job.new(nil, job_args)
           job.handle_job
         else
-          work_queue = job_args.delete :work_queue
+          work_queue = job_args.delete 'work_queue'
           if klass.respond_to? :coney_island_settings
             work_queue ||= klass.coney_island_settings[:work_queue]
           end
           work_queue ||= 'default'
-          self.exchange.publish(job_args.to_json, {routing_key: "carousels.#{work_queue}"}) do
-            RequestStore.store[:jobs].delete job_id if RequestStore.store[:jobs] && job_id.present?
+          delay = job_args['delay']
+          if klass.respond_to? :coney_island_settings
+            delay ||= klass.coney_island_settings[:delay]
+          end
+          if delay
+            @delay_queue[work_queue] ||= {}
+            unless @delay_queue[work_queue][delay].present?
+              @delay_queue[work_queue][delay] ||= self.channel.queue(
+                work_queue + '_delayed_' + delay.to_s, auto_delete: false, durable: true,
+                arguments: {'x-dead-letter-exchange' => 'coney_island', 'x-message-ttl' => delay * 1000})
+              @delay_queue[work_queue][delay].bind(self.delay_exchange, routing_key: 'carousels.' + work_queue + ".#{delay}")
+            end
+            self.delay_exchange.publish(job_args.to_json, {routing_key: "carousels.#{work_queue}.#{delay}"}) do
+              RequestStore.store[:jobs].delete job_id if RequestStore.store[:jobs] && job_id.present?
+            end
+          else
+            self.exchange.publish(job_args.to_json, {routing_key: "carousels.#{work_queue}"}) do
+              RequestStore.store[:jobs].delete job_id if RequestStore.store[:jobs] && job_id.present?
+            end
           end
         end
         true

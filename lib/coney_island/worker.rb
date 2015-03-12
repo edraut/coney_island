@@ -135,7 +135,7 @@ module ConeyIsland
 
             self.channel.prefetch @prefetch_count
             @queue = self.channel.queue(@full_instance_name, auto_delete: false, durable: true)
-            @queue.bind(self.exchange, routing_key: 'carousels.' + @ticket)
+            @queue.bind(self.exchange, routing_key: 'carousels.' + @ticket + '.#')
             @queue.subscribe(:ack => true) do |metadata,payload|
               self.handle_incoming_message(metadata,payload)
             end
@@ -164,16 +164,7 @@ module ConeyIsland
       begin
         args = JSON.parse(payload)
         job = Job.new(metadata, args)
-        if job.delay.present?
-          self.delayed_jobs << job
-          job.delay_job
-          EventMachine.add_timer(job.delay) do
-            job.activate_after_delay
-            job.handle_job
-          end
-        else
-          job.handle_job
-        end
+        job.handle_job
       rescue Timeout::Error => e
         ConeyIsland.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args, reason: 'timeout in subscribe code before calling job method'})
       rescue Exception => e
