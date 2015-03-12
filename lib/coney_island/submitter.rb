@@ -129,7 +129,6 @@ module ConeyIsland
             delay ||= klass.coney_island_settings[:delay]
           end
           if delay && delay.to_i > 0
-            puts 'delaying...'
             @delay_queue[work_queue] ||= {}
             unless @delay_queue[work_queue][delay].present?
               @delay_queue[work_queue][delay] ||= self.channel.queue(
