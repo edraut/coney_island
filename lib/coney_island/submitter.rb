@@ -165,12 +165,14 @@ module ConeyIsland
     end
 
     def self.run_with_em(klass, method, *args)
+      ConeyIsland.stop_running_inline
       EventMachine.run do
         self.cache_jobs
         klass.send(method, *args)
         self.flush_jobs
         self.publisher_shutdown
       end
+      ConeyIsland.run_inline
     end
 
     def self.publisher_shutdown
