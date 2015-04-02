@@ -161,16 +161,13 @@ module ConeyIsland
     end
 
     def self.handle_incoming_message(metadata,payload)
-      begin
-        args = JSON.parse(payload)
-        job = Job.new(metadata, args)
-        job.handle_job
-      rescue Timeout::Error => e
-        ConeyIsland.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args, reason: 'timeout in subscribe code before calling job method'})
-      rescue Exception => e
-        ConeyIsland.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args})
-        self.log.error("ConeyIsland code error, not application code:\n#{e.inspect}\nARGS: #{args}")
-      end
+      args = JSON.parse(payload)
+      job = Job.new(metadata, args)
+      job.handle_job
+    rescue Exception => e
+      metadata.ack if !ConeyIsland.running_inline?
+      ConeyIsland.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args})
+      self.log.error("ConeyIsland code error, not application code:\n#{e.inspect}\nARGS: #{args}")
     end
 
     def self.handle_missing_children

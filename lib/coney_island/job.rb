@@ -31,6 +31,13 @@ module ConeyIsland
       else
         @object = @klass
       end
+    rescue Exception => e
+      metadata.ack if !ConeyIsland.running_inline?
+      log.error("Error initializing with args #{args}:")
+      log.error(e.message)
+      log.error(e.backtrace.join("\n"))
+      ConeyIsland.poke_the_badger(e, {message: "Error during job initialization, bailing out", work_queue: self.ticket, job_payload: args})
+      log.info("finished job #{id}")
     end
 
     def ticket
