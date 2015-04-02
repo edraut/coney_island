@@ -163,7 +163,7 @@ module ConeyIsland
     def self.handle_incoming_message(metadata,payload)
       args = JSON.parse(payload)
       job = Job.new(metadata, args)
-      job.handle_job
+      job.handle_job unless job.initialization_errors
     rescue Exception => e
       metadata.ack if !ConeyIsland.running_inline?
       ConeyIsland.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args})

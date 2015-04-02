@@ -1,7 +1,8 @@
 module ConeyIsland
   class Job
     attr_accessor :delay, :timeout, :method_name, :class_name, :klass, :method_args, :id, :args,
-                  :instance_id, :object, :metadata, :attempts, :retry_limit, :retry_on_exception
+                  :instance_id, :object, :metadata, :attempts, :retry_limit, :retry_on_exception,
+                  :initialization_errors
 
     def initialize(metadata, args)
       @args = args
@@ -33,6 +34,7 @@ module ConeyIsland
       end
     rescue Exception => e
       metadata.ack if !ConeyIsland.running_inline?
+      self.initialization_errors = true
       log.error("Error initializing with args #{args}:")
       log.error(e.message)
       log.error(e.backtrace.join("\n"))
