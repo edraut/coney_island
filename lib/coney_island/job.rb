@@ -2,12 +2,13 @@ module ConeyIsland
   class Job
     attr_accessor :delay, :timeout, :method_name, :class_name, :klass, :method_args, :id, :args,
                   :instance_id, :object, :metadata, :attempts, :retry_limit, :retry_on_exception,
-                  :initialization_errors
+                  :initialization_errors, :dont_log
 
     def initialize(metadata, args)
       @args = args
       @id = SecureRandom.uuid
-      self.log.info ("Starting job #{@id}: #{@args}")
+      @dont_log = args['dont_log']
+      self.log.info ("Starting job #{@id}: #{@args}") unless self.dont_log
       @delay = args['delay'].to_i if args['delay']
       @timeout = args['timeout']
       @method_name = args['method_name']
@@ -19,6 +20,7 @@ module ConeyIsland
       @attempts = args['attempt_count'] || 1
       @retry_limit = args['retry_limit'] || 3
       @retry_on_exception = args['retry_on_exception']
+
       @metadata = metadata
       if @klass.respond_to? :coney_island_settings
         @delay ||= @klass.coney_island_settings[:delay]
@@ -100,7 +102,7 @@ module ConeyIsland
 
     def finalize_job
       metadata.ack if !ConeyIsland.running_inline?
-      log.info("finished job #{id}")
+      log.info("finished job #{id}") unless self.dont_log
       ConeyIsland::Worker.running_jobs.delete self
     end
 
