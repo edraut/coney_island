@@ -50,6 +50,22 @@ class PerformerTest < MiniTest::Test
       @exchange.verify
       ::PerformerTest.messages[:publish_hash][:routing_key].must_equal "carousels.boardwalk"
     end
+
+    it "inherits settings from a base class" do
+      @exchange = Minitest::Mock.new
+      def @exchange.publish(payload,options,&blk)
+        ::PerformerTest.messages[:publish_hash] = options
+      end
+      ConeyIsland::Submitter.stub(:handle_connection, nil) do
+        ConeyIsland::Submitter.stub(:exchange, @exchange) do
+          ConeyIsland::Submitter.stop_running_inline
+          ConeyIsland::Submitter.submit(MyPerformer, :perform, args: [], delay: 0)
+        end
+      end
+
+      @exchange.verify
+      ::PerformerTest.messages[:publish_hash][:routing_key].must_equal "carousels.this-other-queue"
+    end
   end
 
   describe 'async methods' do
@@ -122,3 +138,6 @@ class MyPerformer
   end
 end
 
+class MyInheritedPerformer < MyPerformer
+  set_background_defaults work_queue: "this-other-queue"
+end

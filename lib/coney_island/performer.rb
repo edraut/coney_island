@@ -3,6 +3,8 @@ module ConeyIsland
 
     def self.included(base)
       base.extend ClassMethods
+      # http://apidock.com/rails/Class/class_attribute
+      base.class_attribute :coney_island_settings
     end
 
     def method_missing(method_name, *args)
@@ -22,13 +24,16 @@ module ConeyIsland
     module ClassMethods
 
       def set_background_defaults(work_queue: nil, delay: nil, timeout: nil)
-        self.coney_island_settings[:work_queue] = work_queue
-        self.coney_island_settings[:delay] = delay
-        self.coney_island_settings[:timeout] = timeout
+        # This works as intended, subclasses get their own specific configurations
+        # if they pass any and inherit config from base classes but we should
+        # treat these defaults better or whatever isn't passed gets merged
+        # as nil here.
+        self.coney_island_settings = get_coney_settings.merge \
+          work_queue: work_queue, delay: delay, timeout: timeout
       end
 
-      def coney_island_settings
-        @coney_island_settings ||= {}
+      def get_coney_settings
+        self.coney_island_settings ||= {}
       end
 
       def method_missing(method_name, *args)
