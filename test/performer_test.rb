@@ -59,10 +59,9 @@ class PerformerTest < MiniTest::Test
       ConeyIsland::Submitter.stub(:handle_connection, nil) do
         ConeyIsland::Submitter.stub(:exchange, @exchange) do
           ConeyIsland::Submitter.stop_running_inline
-          ConeyIsland::Submitter.submit(MyPerformer, :perform, args: [], delay: 0)
+          ConeyIsland::Submitter.submit(MyInheritedPerformer, :perform, args: [], delay: 0)
         end
       end
-
       @exchange.verify
       ::PerformerTest.messages[:publish_hash][:routing_key].must_equal "carousels.this-other-queue"
     end

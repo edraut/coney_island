@@ -23,14 +23,20 @@ module ConeyIsland
 
     module ClassMethods
 
-      def set_background_defaults(work_queue: nil, delay: nil, timeout: nil)
-        # This works as intended, subclasses get their own specific configurations
-        # if they pass any and inherit config from base classes but we should
-        # treat these defaults better or whatever isn't passed gets merged
-        # as nil here.
-        self.coney_island_settings = get_coney_settings.merge \
-          work_queue: work_queue, delay: delay, timeout: timeout
+      # Sets inheritable class defaults for ConeyIsland.
+      # Valid options:
+      #   :work_queue - use a named queue for this class.
+      #   :delay - Delay execution of the job on the worker. The delay value is
+      #     a number of seconds.
+      #   :timeout - Timeout the job with retry. The timeout value is a number
+      #     of seconds. By default ConeyIsland will retry 3 times before bailing
+      #     out.
+      def set_background_defaults(options = {})
+        options = options.dup.symbolize_keys.slice(:work_queue, :delay, :timeout)
+        self.coney_island_settings = get_coney_settings.merge(options)
       end
+
+      protected
 
       def get_coney_settings
         self.coney_island_settings ||= {}
