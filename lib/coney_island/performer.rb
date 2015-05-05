@@ -3,6 +3,8 @@ module ConeyIsland
 
     def self.included(base)
       base.extend ClassMethods
+      # http://apidock.com/rails/Class/class_attribute
+      base.class_attribute :coney_island_settings
     end
 
     def method_missing(method_name, *args)
@@ -21,15 +23,24 @@ module ConeyIsland
 
     module ClassMethods
 
-      def set_background_defaults(work_queue: nil, delay: nil, timeout: nil)
-        self.coney_island_settings[:work_queue] = work_queue
-        self.coney_island_settings[:delay] = delay
-        self.coney_island_settings[:timeout] = timeout
+      # Sets inheritable class defaults for ConeyIsland.
+      # Valid options:
+      #   :work_queue - use a named queue for this class.
+      #   :delay - Delay execution of the job on the worker. The delay value is
+      #     a number of seconds.
+      #   :timeout - Timeout the job with retry. The timeout value is a number
+      #     of seconds. By default ConeyIsland will retry 3 times before bailing
+      #     out.
+      def set_background_defaults(options = {})
+        options = options.dup.symbolize_keys.slice(:work_queue, :delay, :timeout)
+        self.coney_island_settings = get_coney_settings.merge(options)
       end
 
-      def coney_island_settings
-        @coney_island_settings ||= {}
+      def get_coney_settings
+        self.coney_island_settings ||= ConeyIsland.default_settings
       end
+
+      protected
 
       def method_missing(method_name, *args)
         method_str = method_name.to_s

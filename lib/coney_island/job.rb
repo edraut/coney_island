@@ -22,11 +22,14 @@ module ConeyIsland
       @retry_on_exception = args['retry_on_exception']
 
       @metadata = metadata
-      if @klass.respond_to? :coney_island_settings
-        @delay ||= @klass.coney_island_settings[:delay]
-        @timeout ||= @klass.coney_island_settings[:timeout]
+
+      if @klass.included_modules.include?(Performer)
+        @delay   ||= @klass.get_coney_settings[:delay]
+        @timeout ||= @klass.get_coney_settings[:timeout]
       end
-      @timeout ||= BG_TIMEOUT_SECONDS
+
+      @timeout ||= ConeyIsland.default_settings[:timeout]
+
       if @instance_id.present?
         @object = @klass.find(@instance_id)
       elsif @singleton
