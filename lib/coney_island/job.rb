@@ -28,7 +28,8 @@ module ConeyIsland
         @timeout ||= @klass.get_coney_settings[:timeout]
       end
 
-      @timeout ||= BG_TIMEOUT_SECONDS
+      @timeout ||= ConeyIsland.default_settings[:timeout]
+
       if @instance_id.present?
         @object = @klass.find(@instance_id)
       elsif @singleton

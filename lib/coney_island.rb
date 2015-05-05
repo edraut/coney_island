@@ -2,8 +2,6 @@ module ConeyIsland
 
   ### BEGIN configuration
 
-  BG_TIMEOUT_SECONDS = 30
-
   def self.amqp_connection
     @connection
   end
@@ -118,6 +116,10 @@ module ConeyIsland
       attempts += 1
       retry
     end
+  end
+
+  def self.default_settings
+    { work_queue: 'default', timeout: 30, delay: 0 }
   end
 
 end

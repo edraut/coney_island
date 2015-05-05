@@ -37,7 +37,7 @@ module ConeyIsland
       end
 
       def get_coney_settings
-        self.coney_island_settings ||= {}
+        self.coney_island_settings ||= ConeyIsland.default_settings
       end
 
       protected

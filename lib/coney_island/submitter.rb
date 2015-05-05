@@ -124,8 +124,8 @@ module ConeyIsland
           work_queue ||= klass.get_coney_settings[:work_queue]
         end
         # Set our own defaults if we still don't have any
-        work_queue ||= 'default'
-        delay      ||= '0'
+        work_queue ||= ConeyIsland.default_settings[:work_queue]
+        delay      ||= ConeyIsland.default_settings[:delay]
 
         if @run_inline
           job = ConeyIsland::Job.new(nil, job_args)
