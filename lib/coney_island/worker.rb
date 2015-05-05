@@ -165,6 +165,7 @@ module ConeyIsland
       job = Job.new(metadata, args)
       job.handle_job unless job.initialization_errors
     rescue Exception => e
+      self.log.info("DEBUG: Worker.handle_incoming_messages rescuing exception and acking #{job.id} #{metadata} ")
       metadata.ack if !ConeyIsland.running_inline?
       ConeyIsland.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args})
       self.log.error("ConeyIsland code error, not application code:\n#{e.inspect}\nARGS: #{args}")

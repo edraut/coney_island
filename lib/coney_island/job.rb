@@ -38,6 +38,7 @@ module ConeyIsland
         @object = @klass
       end
     rescue Exception => e
+      self.log.info("DEBUG: Job#initialize rescuing exception and acking #{self.id} #{metadata} ")
       metadata.ack if !ConeyIsland.running_inline?
       self.initialization_errors = true
       log.error("Error initializing with args #{args}:")
@@ -104,6 +105,7 @@ module ConeyIsland
     end
 
     def finalize_job
+      log.info("DEBUG Job#finalize about to ack rabbitMQ #{self.id} #{metadata}")
       metadata.ack if !ConeyIsland.running_inline?
       log.info("finished job #{id}") unless self.dont_log
       ConeyIsland::Worker.running_jobs.delete self
