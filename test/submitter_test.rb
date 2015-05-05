@@ -66,6 +66,11 @@ class SubmitterTest < MiniTest::Test
         @exchange = setup_mock DummyPerformer, :perform, nil, 'foo'
         @exchange.verify
       end
+
+      it "still allows overriding the set_background_defaults" do
+        @exchange = setup_mock DummyPerformer, :perform, nil, 'bar', 'bar'
+        @exchange.verify
+      end
     end
 
   end
