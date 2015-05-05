@@ -36,11 +36,11 @@ module ConeyIsland
         self.coney_island_settings = get_coney_settings.merge(options)
       end
 
-      protected
-
       def get_coney_settings
         self.coney_island_settings ||= {}
       end
+
+      protected
 
       def method_missing(method_name, *args)
         method_str = method_name.to_s

@@ -115,19 +115,22 @@ module ConeyIsland
         job_args['klass'] = klass_name
         job_args['method_name'] = method_name
         job_args.stringify_keys!
+        # Extract non job args
+        delay      = job_args.delete 'delay'
+        work_queue = job_args.delete 'work_queue'
+        # Set class defaults if they exist
+        if klass.included_modules.include?(Performer)
+          delay      ||= klass.get_coney_settings[:delay]
+          work_queue ||= klass.get_coney_settings[:work_queue]
+        end
+        # Set our own defaults if we still don't have any
+        work_queue ||= 'default'
+        delay      ||= '0'
+
         if @run_inline
           job = ConeyIsland::Job.new(nil, job_args)
           job.handle_job
         else
-          work_queue = job_args.delete 'work_queue'
-          if klass.respond_to? :coney_island_settings
-            work_queue ||= klass.coney_island_settings[:work_queue]
-          end
-          work_queue ||= 'default'
-          delay = job_args['delay']
-          if klass.respond_to? :coney_island_settings
-            delay ||= klass.coney_island_settings[:delay]
-          end
           if delay && delay.to_i > 0
             @delay_queue[work_queue] ||= {}
             unless @delay_queue[work_queue][delay].present?
