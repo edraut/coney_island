@@ -67,6 +67,19 @@ class PerformerTest < MiniTest::Test
     end
   end
 
+  describe "#get_coney_settings" do
+    it "inherits from the defaults" do
+      MySingleton.get_coney_settings.must_equal ConeyIsland.default_settings
+    end
+
+    it "is inheritable by subclasses" do
+      MyInheritedPerformer.get_coney_settings[:work_queue].must_equal 'this-other-queue'
+      # These come from the base class
+      MyInheritedPerformer.get_coney_settings[:timeout].must_equal 5
+      MyInheritedPerformer.get_coney_settings[:delay].must_equal 1
+    end
+  end
+
   describe 'async methods' do
     it 'responds to async instance methods' do
       my_performer = MyPerformer.new(7)
