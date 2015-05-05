@@ -34,7 +34,6 @@ class MiniTest::Test
 end
 
 class TestModel
-
   def self.add_to_list(array)
     array.push "Added one!"
   end
