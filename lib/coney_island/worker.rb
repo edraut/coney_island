@@ -115,7 +115,23 @@ module ConeyIsland
 
           AMQP.connect(self.amqp_parameters) do |connection|
             self.log.info("Connected to AMQP broker. Running #{AMQP::VERSION}")
+            connection.on_error do |conn, connection_close|
+              self.log.error "Handling a connection-level exception."
+              self.log.error
+              self.log.error "AMQP class id : #{connection_close.class_id}"
+              self.log.error "AMQP method id: #{connection_close.method_id}"
+              self.log.error "Status code   : #{connection_close.reply_code}"
+              self.log.error "Error message : #{connection_close.reply_text}"
+            end
             @channel = AMQP::Channel.new(connection)
+            channel.on_error do |ch, channel_close|
+              self.log.error "Handling a channel-level exception."
+              self.log.error
+              self.log.error "AMQP class id : #{channel_close.class_id}"
+              self.log.error "AMQP method id: #{channel_close.method_id}"
+              self.log.error "Status code   : #{channel_close.reply_code}"
+              self.log.error "Error message : #{channel_close.reply_text}"
+            end
             @exchange = @channel.topic('coney_island')
             #Handle a lost connection to rabbitMQ
             connection.on_tcp_connection_loss do |connection, settings|
@@ -165,7 +181,6 @@ module ConeyIsland
       job = Job.new(metadata, args)
       job.handle_job unless job.initialization_errors
     rescue Exception => e
-      self.log.info("DEBUG: Worker.handle_incoming_messages rescuing exception and acking #{job.id} #{metadata} ")
       metadata.ack if !ConeyIsland.running_inline?
       ConeyIsland.poke_the_badger(e, {code_source: 'ConeyIsland', job_payload: args})
       self.log.error("ConeyIsland code error, not application code:\n#{e.inspect}\nARGS: #{args}")
