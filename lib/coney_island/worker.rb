@@ -123,43 +123,24 @@ module ConeyIsland
               self.log.error "Status code   : #{connection_close.reply_code}"
               self.log.error "Error message : #{connection_close.reply_text}"
             end
-            @channel = AMQP::Channel.new(connection)
-            channel.on_error do |ch, channel_close|
-              self.log.error "Handling a channel-level exception."
-              self.log.error
-              self.log.error "AMQP class id : #{channel_close.class_id}"
-              self.log.error "AMQP method id: #{channel_close.method_id}"
-              self.log.error "Status code   : #{channel_close.reply_code}"
-              self.log.error "Error message : #{channel_close.reply_text}"
-            end
-            @exchange = @channel.topic('coney_island')
             #Handle a lost connection to rabbitMQ
             connection.on_tcp_connection_loss do |connection, settings|
               # since we lost the connection, rabbitMQ will resend all jobs we didn't finish
               # so drop them and restart
-              unless @shutting_down
-                self.abandon_and_shutdown
-              end
+              self.log.warn("Lost rabbit connection, attempting to reconnect...")
+              connection.reconnect(true, 1)
+              self.initialize_rabbit(connection)
+              # unless @shutting_down
+              #   self.abandon_and_shutdown
+              # end
             end
 
-            #send a heartbeat every 15 seconds to avoid aggresive network configurations that close quiet connections
-            heartbeat_exchange = self.channel.fanout('coney_island_heartbeat')
-            EventMachine.add_periodic_timer(15) do
-              heartbeat_exchange.publish({:instance_name => @ticket})
-              self.handle_missing_children
-            end
-
-            self.channel.prefetch @prefetch_count
-            @queue = self.channel.queue(@full_instance_name, auto_delete: false, durable: true)
-            @queue.bind(self.exchange, routing_key: 'carousels.' + @ticket + '.#')
-            @queue.subscribe(:ack => true) do |metadata,payload|
-              self.handle_incoming_message(metadata,payload)
-            end
+            self.initialize_rabbit(connection)
           end
         end
-      rescue AMQP::TCPConnectionFailed => e
+      rescue AMQP::TCPConnectionFailed, AMQP::PossibleAuthenticationFailureError => e
         ConeyIsland.tcp_connection_retries ||= 0
-          ConeyIsland.tcp_connection_retries += 1
+        ConeyIsland.tcp_connection_retries += 1
         if ConeyIsland.tcp_connection_retries >= ConeyIsland.tcp_connection_retry_limit
           message = "Failed to connect to RabbitMQ #{ConeyIsland.tcp_connection_retry_limit} times, bailing out"
           self.log.error(message)
@@ -167,12 +148,40 @@ module ConeyIsland
             code_source: 'ConeyIsland::Worker.start',
             reason: message}
           )
+          self.abandon_and_shutdown
         else
           message = "Failed to connecto to RabbitMQ Attempt ##{ConeyIsland.tcp_connection_retries} time(s), trying again in #{ConeyIsland.tcp_connection_retry_interval} seconds..."
           self.log.error(message)
-          sleep(10)
+          sleep(ConeyIsland.tcp_connection_retry_interval)
           retry
         end
+      end
+    end
+
+    def self.initialize_rabbit(connection)
+      self.log.info('initializing rabbit connection with channel and queue...')
+      @channel = AMQP::Channel.new(connection)
+      channel.on_error do |ch, channel_close|
+        self.log.error "Handling a channel-level exception."
+        self.log.error
+        self.log.error "AMQP class id : #{channel_close.class_id}"
+        self.log.error "AMQP method id: #{channel_close.method_id}"
+        self.log.error "Status code   : #{channel_close.reply_code}"
+        self.log.error "Error message : #{channel_close.reply_text}"
+      end
+      @exchange = @channel.topic('coney_island')
+      #send a heartbeat every 15 seconds to avoid aggresive network configurations that close quiet connections
+      heartbeat_exchange = self.channel.fanout('coney_island_heartbeat')
+      EventMachine.add_periodic_timer(15) do
+        heartbeat_exchange.publish({:instance_name => @ticket})
+        self.handle_missing_children
+      end
+
+      self.channel.prefetch @prefetch_count
+      @queue = self.channel.queue(@full_instance_name, auto_delete: false, durable: true)
+      @queue.bind(self.exchange, routing_key: 'carousels.' + @ticket + '.#')
+      @queue.subscribe(:ack => true) do |metadata,payload|
+        self.handle_incoming_message(metadata,payload)
       end
     end
 
@@ -205,6 +214,7 @@ module ConeyIsland
     def self.shutdown(signal)
       @shutting_down = true
       @child_pids.each do |child_pid|
+        self.log("killing child #{child_pid}")
         Process.kill(signal, child_pid)
       end
       @queue.unsubscribe rescue nil

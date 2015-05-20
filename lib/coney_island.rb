@@ -30,12 +30,16 @@ module ConeyIsland
     @tcp_connection_retry_limit ||= 6
   end
 
-  def self.tcp_connection_retry_interval=(interval)
-    @tcp_connection_retry_interval = interval
+  def self.tcp_connection_retry_interval
+    self.tcp_connection_retry_seed ** self.tcp_connection_retries
   end
 
-  def self.tcp_connection_retry_interval
-    @tcp_connection_retry_interval ||= 10
+  def self.tcp_connection_retry_seed=(seed)
+    @tcp_connection_retry_seed = seed
+  end
+
+  def self.tcp_connection_retry_seed
+    @tcp_connection_retry_seed ||= 2
   end
 
   def self.notifier

@@ -36,7 +36,7 @@ class ConeyIslandTest < MiniTest::Test
 
     it "retries on TCP connection errors" do
       ConeyIsland.stop_running_inline
-      ConeyIsland.tcp_connection_retry_interval = 0
+      ConeyIsland.tcp_connection_retry_seed = 0
       @fake_channel = MiniTest::Mock.new
       @fake_channel.expect :topic, nil, [String]
       @fake_channel.expect :topic, nil, [String]
