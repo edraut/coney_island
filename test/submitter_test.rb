@@ -32,6 +32,30 @@ class SubmitterTest < MiniTest::Test
           ConeyIsland::Submitter.publish_job([:not_a_class, :add_to_list, args: [[]]])
         end
       end
+      it "retries on TCP connection errors" do
+        ConeyIsland.stop_running_inline
+        ConeyIsland.tcp_connection_retry_seed = 0
+        @fake_channel = Minitest::Mock.new
+        @fake_channel.expect :topic, nil, [String]
+        @fake_channel.expect :topic, nil, [String]
+        force_tcp_error = ->{
+          @attempts ||= 0
+          @attempts += 1
+          if @attempts == 1
+            raise Bunny::TCPConnectionFailed.new({host: '127.0.0.1'})
+          else
+            return true
+          end
+        }
+        ConeyIsland::Submitter.stub(:start_connection,force_tcp_error) do
+          ConeyIsland::Submitter.stub(:create_channel, nil) do
+            ConeyIsland::Submitter.stub(:channel, @fake_channel) do
+              ConeyIsland::Submitter.handle_connection
+            end
+          end
+        end
+        @attempts.must_equal 2
+      end
     end
 
     def setup_mock(klass, method, args, expected_work_queue, work_queue=nil)
@@ -74,6 +98,7 @@ class SubmitterTest < MiniTest::Test
     end
 
   end
+
 end
 
 class DummyPerformer

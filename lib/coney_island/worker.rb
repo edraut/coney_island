@@ -17,6 +17,14 @@ module ConeyIsland
       @log = log_thing
     end
 
+    def self.tcp_connection_retries=(number)
+      @tcp_connection_retries = number
+    end
+
+    def self.tcp_connection_retries
+      @tcp_connection_retries
+    end
+
     def self.running_jobs
       @running_jobs ||= []
     end
@@ -114,10 +122,9 @@ module ConeyIsland
           end
 
           AMQP.connect(self.amqp_parameters) do |connection|
-            self.log.info("Connected to AMQP broker. Running #{AMQP::VERSION}")
+            self.log.info("Worker Connected to AMQP broker. Running #{AMQP::VERSION}")
             connection.on_error do |conn, connection_close|
-              self.log.error "Handling a connection-level exception."
-              self.log.error
+              self.log.error "Worker Handling a connection-level exception."
               self.log.error "AMQP class id : #{connection_close.class_id}"
               self.log.error "AMQP method id: #{connection_close.method_id}"
               self.log.error "Status code   : #{connection_close.reply_code}"
@@ -125,23 +132,18 @@ module ConeyIsland
             end
             #Handle a lost connection to rabbitMQ
             connection.on_tcp_connection_loss do |connection, settings|
-              # since we lost the connection, rabbitMQ will resend all jobs we didn't finish
-              # so drop them and restart
               self.log.warn("Lost rabbit connection, attempting to reconnect...")
               connection.reconnect(true, 1)
               self.initialize_rabbit(connection)
-              # unless @shutting_down
-              #   self.abandon_and_shutdown
-              # end
             end
 
             self.initialize_rabbit(connection)
           end
         end
       rescue AMQP::TCPConnectionFailed, AMQP::PossibleAuthenticationFailureError => e
-        ConeyIsland.tcp_connection_retries ||= 0
-        ConeyIsland.tcp_connection_retries += 1
-        if ConeyIsland.tcp_connection_retries >= ConeyIsland.tcp_connection_retry_limit
+        self.tcp_connection_retries ||= 0
+        self.tcp_connection_retries += 1
+        if self.tcp_connection_retries >= ConeyIsland.tcp_connection_retry_limit
           message = "Failed to connect to RabbitMQ #{ConeyIsland.tcp_connection_retry_limit} times, bailing out"
           self.log.error(message)
           ConeyIsland.poke_the_badger(e, {
@@ -150,9 +152,9 @@ module ConeyIsland
           )
           self.abandon_and_shutdown
         else
-          message = "Failed to connecto to RabbitMQ Attempt ##{ConeyIsland.tcp_connection_retries} time(s), trying again in #{ConeyIsland.tcp_connection_retry_interval} seconds..."
+          message = "Worker Failed to connecto to RabbitMQ Attempt ##{self.tcp_connection_retries} time(s), trying again in #{ConeyIsland.tcp_connection_retry_interval(self.tcp_connection_retries)} seconds..."
           self.log.error(message)
-          sleep(ConeyIsland.tcp_connection_retry_interval)
+          sleep(ConeyIsland.tcp_connection_retry_interval(self.tcp_connection_retries))
           retry
         end
       end
@@ -161,9 +163,8 @@ module ConeyIsland
     def self.initialize_rabbit(connection)
       self.log.info('initializing rabbit connection with channel and queue...')
       @channel = AMQP::Channel.new(connection)
-      channel.on_error do |ch, channel_close|
-        self.log.error "Handling a channel-level exception."
-        self.log.error
+      @channel.on_error do |ch, channel_close|
+        self.log.error "Worker Handling a channel-level exception."
         self.log.error "AMQP class id : #{channel_close.class_id}"
         self.log.error "AMQP method id: #{channel_close.method_id}"
         self.log.error "Status code   : #{channel_close.reply_code}"
@@ -180,9 +181,13 @@ module ConeyIsland
       self.channel.prefetch @prefetch_count
       @queue = self.channel.queue(@full_instance_name, auto_delete: false, durable: true)
       @queue.bind(self.exchange, routing_key: 'carousels.' + @ticket + '.#')
+      if ConeyIsland::Submitter.amqp_connection.respond_to?(:connected?) && !ConeyIsland::Submitter.amqp_connection.connected?
+        ConeyIsland::Submitter.handle_connection
+      end
       @queue.subscribe(:ack => true) do |metadata,payload|
         self.handle_incoming_message(metadata,payload)
       end
+      self.tcp_connection_retries = 0
     end
 
     def self.handle_incoming_message(metadata,payload)

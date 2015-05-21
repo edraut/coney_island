@@ -14,14 +14,6 @@ module ConeyIsland
     @amqp_parameters
   end
 
-  def self.tcp_connection_retries=(number)
-    @tcp_connection_retries = number
-  end
-
-  def self.tcp_connection_retries
-    @tcp_connection_retries
-  end
-
   def self.tcp_connection_retry_limit=(limit)
     @tcp_connection_retry_limit = limit
   end
@@ -30,8 +22,8 @@ module ConeyIsland
     @tcp_connection_retry_limit ||= 6
   end
 
-  def self.tcp_connection_retry_interval
-    self.tcp_connection_retry_seed ** self.tcp_connection_retries
+  def self.tcp_connection_retry_interval(retries)
+    self.tcp_connection_retry_seed ** retries
   end
 
   def self.tcp_connection_retry_seed=(seed)
@@ -135,3 +127,4 @@ require 'coney_island/submitter'
 require 'coney_island/job_argument_error'
 require 'coney_island/railtie' if defined?(Rails)
 require 'coney_island/performer'
+require 'bunny'

@@ -13,6 +13,14 @@ module ConeyIsland
       @run_inline
     end
 
+    def self.tcp_connection_retries=(number)
+      @tcp_connection_retries = number
+    end
+
+    def self.tcp_connection_retries
+      @tcp_connection_retries
+    end
+
     def self.submit(*args)
       if RequestStore.store[:cache_jobs]
         job_id = SecureRandom.uuid
@@ -51,8 +59,24 @@ module ConeyIsland
       end
     end
 
+    def self.connection=(conn)
+      @connection = conn
+    end
+
+    def self.connection
+      @connection
+    end
+
+    def self.start_connection
+      @connection.start
+    end
+
     def self.channel
       @channel
+    end
+
+    def self.create_channel
+      @channel = self.connection.create_channel
     end
 
     def self.exchange
@@ -76,27 +100,48 @@ module ConeyIsland
     end
 
     def self.handle_connection
-      @connection ||= AMQP.connect(self.amqp_parameters)
-    rescue AMQP::TCPConnectionFailed => e
-      ConeyIsland.tcp_connection_retries ||= 0
-        ConeyIsland.tcp_connection_retries += 1
-      if ConeyIsland.tcp_connection_retries >= ConeyIsland.tcp_connection_retry_limit
-        message = "Failed to connect to RabbitMQ #{ConeyIsland.tcp_connection_retry_limit} times, bailing out"
+      Rails.logger.info("ConeyIsland::Submitter.handle_connection connecting...")
+      self.connection = Bunny.new(self.amqp_parameters)
+      self.start_connection
+
+    rescue Bunny::TCPConnectionFailed, Bunny::PossibleAuthenticationFailureError => e
+      self.tcp_connection_retries ||= 0
+      self.tcp_connection_retries += 1
+      if self.tcp_connection_retries >= ConeyIsland.tcp_connection_retry_limit
+        message = "Submitter Failed to connect to RabbitMQ #{ConeyIsland.tcp_connection_retry_limit} times, bailing out"
         Rails.logger.error(message)
         ConeyIsland.poke_the_badger(e, {
           code_source: 'ConeyIsland::Submitter.handle_connection',
           reason: message}
         )
+        @connection = nil
       else
-        message = "Failed to connecto to RabbitMQ Attempt ##{ConeyIsland.tcp_connection_retries} time(s), trying again in #{ConeyIsland.tcp_connection_retry_interval} seconds..."
+        message = "Failed to connecto to RabbitMQ Attempt ##{self.tcp_connection_retries} time(s), trying again in #{ConeyIsland.tcp_connection_retry_interval(self.tcp_connection_retries)} seconds..."
         Rails.logger.error(message)
-        sleep(10)
+        sleep(ConeyIsland.tcp_connection_retry_interval(self.tcp_connection_retries))
         retry
       end
+    rescue Bunny::ConnectionLevelException => e
+      Rails.logger.error "Submitter Handling a connection-level exception."
+      # Rails.logger.error "Bunny class id : #{e.connection_close.class_id}"
+      # Rails.logger.error "Bunny method id: #{e.connection_close.method_id}"
+      # Rails.logger.error "Status code   : #{e.connection_close.reply_code}"
+      # Rails.logger.error "Error message : #{e.connection_close.reply_text}"
+    rescue Bunny::ChannelLevelException => e
+      Rails.logger.error "Submitter Handling a channel-level exception."
+      Rails.logger.error "Bunny class id : #{e.channel_close.class_id}"
+      Rails.logger.error "Bunny method id: #{e.channel_close.method_id}"
+      Rails.logger.error "Status code   : #{e.channel_close.reply_code}"
+      Rails.logger.error "Error message : #{e.channel_close.reply_text}"
     else
-      @channel ||= AMQP::Channel.new(@connection)
-      @exchange = @channel.topic('coney_island')
-      @delay_exchange = @channel.topic('coney_island_delay')
+      self.initialize_rabbit
+      self.tcp_connection_retries = 0
+    end
+
+    def self.initialize_rabbit
+      self.create_channel
+      @exchange = self.channel.topic('coney_island')
+      @delay_exchange = self.channel.topic('coney_island_delay')
       @delay_queue = {}
     end
 
