@@ -212,27 +212,6 @@ module ConeyIsland
       RequestStore.store[:cache_jobs] = false
     end
 
-    def self.run_with_em(klass, method, *args)
-      ConeyIsland.stop_running_inline
-      EventMachine.run do
-        self.cache_jobs
-        klass.send(method, *args)
-        self.flush_jobs
-        self.publisher_shutdown
-      end
-      ConeyIsland.run_inline
-    end
-
-    def self.publisher_shutdown
-      EventMachine.add_periodic_timer(1) do
-        if RequestStore.store[:jobs] && RequestStore.store[:jobs].length > 0
-          Rails.logger.info("Waiting for #{RequestStore.store[:jobs].length} publishes to finish")
-        else
-          Rails.logger.info("Shutting down coney island publisher")
-          EventMachine.stop
-        end
-      end
-    end
   end
 end
 

@@ -95,10 +95,6 @@ module ConeyIsland
     ConeyIsland::Submitter.flush_jobs
   end
 
-  def self.run_with_em(klass, method, *args)
-    ConeyIsland::Submitter.run_with_em(klass, method, *args)
-  end
-
   def self.submit(*args)
     ConeyIsland::Submitter.submit(*args)
   end
