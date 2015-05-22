@@ -37,7 +37,7 @@ module ConeyIsland
       else
         @object = @klass
       end
-    rescue Exception => e
+    rescue StandardError => e
       metadata.ack if !ConeyIsland.running_inline?
       self.initialization_errors = true
       log.error("Error initializing with args #{args}:")
@@ -77,7 +77,7 @@ module ConeyIsland
         self.attempts += 1
         ConeyIsland.submit(self.klass, self.method_name, self.resubmit_args)
       end
-    rescue Exception => e
+    rescue StandardError => e
       log.error("Error executing #{self.class_name}##{self.method_name} #{self.id} for id #{self.instance_id} with args #{self.args}:")
       log.error(e.message)
       log.error(e.backtrace.join("\n"))

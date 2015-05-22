@@ -36,7 +36,7 @@ module ConeyIsland
       else
         begin
           self.submit_all!(args)
-        rescue Exception => e
+        rescue StandardError => e
           Rails.logger.error(e)
           ConeyIsland.poke_the_badger(e,{
             code_source: "ConeyIsland::Submitter.submit!",
