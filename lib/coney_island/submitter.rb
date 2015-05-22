@@ -34,7 +34,6 @@ module ConeyIsland
       if @run_inline
         self.submit_all!(args)
       else
-        self.handle_connection
         begin
           self.submit_all!(args)
         rescue Exception => e

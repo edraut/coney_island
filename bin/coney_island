@@ -7,3 +7,4 @@ require 'config/environment.rb'
 
 ConeyIsland.initialize_background
 ConeyIsland.start_worker
+ConeyIsland::Submitter.handle_connection
