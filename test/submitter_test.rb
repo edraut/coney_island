@@ -27,6 +27,20 @@ class SubmitterTest < MiniTest::Test
       end
     end
     describe "error handling" do
+      it "breaks if klass is not a class or a Module" do
+        error = assert_raises(ConeyIsland::JobArgumentError) do
+          ConeyIsland::Submitter.publish_job([:not_a_class, :method])
+        end
+        assert_match /to be a Class or Module/, error.message
+      end
+
+      it "breaks if the method_name is not a String or a Symbol" do
+        error = assert_raises(ConeyIsland::JobArgumentError) do
+          ConeyIsland::Submitter.publish_job([Class, 1])
+        end
+        assert_match /to be a String or a Symbol/, error.message
+      end
+
       it "handles argument errors for jobs" do
         assert_raises(ConeyIsland::JobArgumentError) do
           ConeyIsland::Submitter.publish_job([:not_a_class, :add_to_list, args: [[]]])

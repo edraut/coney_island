@@ -149,53 +149,57 @@ module ConeyIsland
     end
 
     def self.publish_job(args, job_id = nil)
-      if (args.first.is_a? Class or args.first.is_a? Module) and (args[1].is_a? String or args[1].is_a? Symbol) and args.last.is_a? Hash and 3 == args.length
-        klass = args.shift
-        klass_name = klass.name
+      # Map arguments
+      klass, method_name, job_args = *args
+      # Job args is optional
+      job_args ||= {}
 
-        method_name = args.shift
-        job_args = args.shift
-        job_args ||= {}
-        job_args['klass'] = klass_name
-        job_args['method_name'] = method_name
-        job_args.stringify_keys!
-        # Extract non job args
-        delay      = job_args.delete 'delay'
-        work_queue = job_args.delete 'work_queue'
-        # Set class defaults if they exist
-        if klass.included_modules.include?(Performer)
-          delay      ||= klass.get_coney_settings[:delay]
-          work_queue ||= klass.get_coney_settings[:work_queue]
-        end
-        # Set our own defaults if we still don't have any
-        work_queue ||= ConeyIsland.default_settings[:work_queue]
-        delay      ||= ConeyIsland.default_settings[:delay]
+      # Check arguments
+      # Break if klass isn't a Class or a Module
+      raise ConeyIsland::JobArgumentError.new "Expected #{klass} to be a Class or Module" unless [Class, Module].any? {|k| klass.is_a?(k)}
+      # Break if method_name isn't a String or a Symbol
+      raise ConeyIsland::JobArgumentError.new "Expected #{method_name} to be a String or a Symbol" unless [String,Symbol].any? {|k| method_name.is_a?(k)}
 
-        if @run_inline
-          job = ConeyIsland::Job.new(nil, job_args)
-          job.handle_job
+      # Set defaults
+      job_args['klass']       = klass.name
+      job_args['method_name'] = method_name
+      job_args.stringify_keys!
+
+      # Extract non job args
+      delay      = job_args.delete 'delay'
+      work_queue = job_args.delete 'work_queue'
+
+      # Set class defaults if they exist
+      if klass.included_modules.include?(Performer)
+        delay      ||= klass.get_coney_settings[:delay]
+        work_queue ||= klass.get_coney_settings[:work_queue]
+      end
+      # Set our own defaults if we still don't have any
+      work_queue ||= ConeyIsland.default_settings[:work_queue]
+      delay      ||= ConeyIsland.default_settings[:delay]
+
+      if @run_inline
+        job = ConeyIsland::Job.new(nil, job_args)
+        job.handle_job
+      else
+        if delay && delay.to_i > 0
+          @delay_queue[work_queue] ||= {}
+          unless @delay_queue[work_queue][delay].present?
+            @delay_queue[work_queue][delay] ||= self.channel.queue(
+              work_queue + '_delayed_' + delay.to_s, auto_delete: false, durable: true,
+              arguments: {'x-dead-letter-exchange' => 'coney_island', 'x-message-ttl' => delay * 1000})
+            @delay_queue[work_queue][delay].bind(self.delay_exchange, routing_key: 'carousels.' + work_queue + ".#{delay}")
+          end
+          self.delay_exchange.publish(job_args.to_json, {routing_key: "carousels.#{work_queue}.#{delay}"}) do
+            RequestStore.store[:jobs].delete job_id if RequestStore.store[:jobs] && job_id.present?
+          end
         else
-          if delay && delay.to_i > 0
-            @delay_queue[work_queue] ||= {}
-            unless @delay_queue[work_queue][delay].present?
-              @delay_queue[work_queue][delay] ||= self.channel.queue(
-                work_queue + '_delayed_' + delay.to_s, auto_delete: false, durable: true,
-                arguments: {'x-dead-letter-exchange' => 'coney_island', 'x-message-ttl' => delay * 1000})
-              @delay_queue[work_queue][delay].bind(self.delay_exchange, routing_key: 'carousels.' + work_queue + ".#{delay}")
-            end
-            self.delay_exchange.publish(job_args.to_json, {routing_key: "carousels.#{work_queue}.#{delay}"}) do
-              RequestStore.store[:jobs].delete job_id if RequestStore.store[:jobs] && job_id.present?
-            end
-          else
-            self.exchange.publish(job_args.to_json, {routing_key: "carousels.#{work_queue}"}) do
-              RequestStore.store[:jobs].delete job_id if RequestStore.store[:jobs] && job_id.present?
-            end
+          self.exchange.publish(job_args.to_json, {routing_key: "carousels.#{work_queue}"}) do
+            RequestStore.store[:jobs].delete job_id if RequestStore.store[:jobs] && job_id.present?
           end
         end
-        true
-      else
-        raise ConeyIsland::JobArgumentError.new
       end
+      true
     end
 
     def self.cache_jobs
