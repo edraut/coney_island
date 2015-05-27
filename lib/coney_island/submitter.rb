@@ -180,7 +180,7 @@ module ConeyIsland
       delay      ||= ConeyIsland.default_settings[:delay]
 
       # Just run this inline if we're not threaded
-      ConeyIsland::Job.new(nil, job_args).handle_job and return true if self.running_inline?
+      ConeyIsland::Job.new(nil, job_args).handle_job and return true if running_inline?
 
       # Is this delayed?
       if delay && delay.to_i > 0
@@ -212,6 +212,8 @@ module ConeyIsland
     # Publishes a job to a delayed queue exchange
     def self.publish_to_delay_queue(job_id, job_args, work_queue, delay)
       @delay_queue[work_queue] ||= {}
+
+      # TODO: Should this be in a different little method, say, bind_delay?
       unless @delay_queue[work_queue][delay].present?
         @delay_queue[work_queue][delay] ||= self.channel.queue(
           work_queue + '_delayed_' + delay.to_s, auto_delete: false, durable: true,
