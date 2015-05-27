@@ -111,6 +111,7 @@ module ConeyIsland
       defined?(ActiveRecord::Base) and
         ActiveRecord::Base.establish_connection
 
+      ConeyIsland::Submitter.handle_connection
       begin
         EventMachine.run do
 
