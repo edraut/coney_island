@@ -174,31 +174,23 @@ module ConeyIsland
         delay      ||= klass.get_coney_settings[:delay]
         work_queue ||= klass.get_coney_settings[:work_queue]
       end
+
       # Set our own defaults if we still don't have any
       work_queue ||= ConeyIsland.default_settings[:work_queue]
       delay      ||= ConeyIsland.default_settings[:delay]
 
-      if @run_inline
-        job = ConeyIsland::Job.new(nil, job_args)
-        job.handle_job
+      # Just run this inline if we're not threaded
+      ConeyIsland::Job.new(nil, job_args).handle_job and return true if self.running_inline?
+
+      # Is this delayed?
+      if delay && delay.to_i > 0
+        # Publish to the delay exchange
+        publish_to_delay_queue(job_id, job_args, work_queue, delay)
       else
-        if delay && delay.to_i > 0
-          @delay_queue[work_queue] ||= {}
-          unless @delay_queue[work_queue][delay].present?
-            @delay_queue[work_queue][delay] ||= self.channel.queue(
-              work_queue + '_delayed_' + delay.to_s, auto_delete: false, durable: true,
-              arguments: {'x-dead-letter-exchange' => 'coney_island', 'x-message-ttl' => delay * 1000})
-            @delay_queue[work_queue][delay].bind(self.delay_exchange, routing_key: 'carousels.' + work_queue + ".#{delay}")
-          end
-          self.delay_exchange.publish(job_args.to_json, {routing_key: "carousels.#{work_queue}.#{delay}"}) do
-            RequestStore.store[:jobs].delete job_id if RequestStore.store[:jobs] && job_id.present?
-          end
-        else
-          self.exchange.publish(job_args.to_json, {routing_key: "carousels.#{work_queue}"}) do
-            RequestStore.store[:jobs].delete job_id if RequestStore.store[:jobs] && job_id.present?
-          end
-        end
+        # Publish to the normal exchange
+        publish_to_queue(self.exchange, job_id, job_args, work_queue)
       end
+
       true
     end
 
@@ -213,6 +205,28 @@ module ConeyIsland
 
     def self.stop_caching_jobs
       RequestStore.store[:cache_jobs] = false
+    end
+
+    protected
+
+    # Publishes a job to a delayed queue exchange
+    def self.publish_to_delay_queue(job_id, job_args, work_queue, delay)
+      @delay_queue[work_queue] ||= {}
+      unless @delay_queue[work_queue][delay].present?
+        @delay_queue[work_queue][delay] ||= self.channel.queue(
+          work_queue + '_delayed_' + delay.to_s, auto_delete: false, durable: true,
+          arguments: {'x-dead-letter-exchange' => 'coney_island', 'x-message-ttl' => delay * 1000})
+        @delay_queue[work_queue][delay].bind(self.delay_exchange, routing_key: 'carousels.' + work_queue + ".#{delay}")
+      end
+
+      publish_to_queue(self.delay_exchange, job_id, job_args, "#{work_queue}.#{delay}")
+    end
+
+    # Publishes a job to a given exchange
+    def self.publish_to_queue(exchange, job_id, job_args, queue)
+      exchange.publish(job_args.to_json, {routing_key: "carousels.#{queue}"}) do
+        RequestStore.store[:jobs].delete job_id if RequestStore.store[:jobs] && job_id.present?
+      end
     end
 
   end
