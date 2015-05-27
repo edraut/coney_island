@@ -220,7 +220,7 @@ module ConeyIsland
     def self.shutdown(signal)
       @shutting_down = true
       @child_pids.each do |child_pid|
-        self.log("killing child #{child_pid}")
+        self.log.info("killing child #{child_pid}")
         Process.kill(signal, child_pid)
       end
       @queue.unsubscribe rescue nil
