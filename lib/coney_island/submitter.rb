@@ -10,7 +10,7 @@ module ConeyIsland
     end
 
     def self.running_inline?
-      @run_inline
+      !!@run_inline
     end
 
     def self.tcp_connection_retries=(number)
@@ -179,11 +179,11 @@ module ConeyIsland
       work_queue ||= ConeyIsland.default_settings[:work_queue]
       delay      ||= ConeyIsland.default_settings[:delay]
 
-      # Just run this inline if we're not threaded
-      ConeyIsland::Job.new(nil, job_args).handle_job and return true if running_inline?
-
-      # Is this delayed?
-      if delay && delay.to_i > 0
+      if self.running_inline?
+        # Just run this inline if we're not threaded
+        ConeyIsland::Job.new(nil, job_args).handle_job
+      elsif delay && delay.to_i > 0
+        # Is this delayed?
         # Publish to the delay exchange
         publish_to_delay_queue(job_id, job_args, work_queue, delay)
       else
