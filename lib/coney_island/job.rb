@@ -69,8 +69,8 @@ module ConeyIsland
         execute_job_method
       end
     rescue Timeout::Error => e
-      log.info "Restarting RabbitMQ connection due to an ambiguous timeout..."
-      ConeyIsland::Submitter.handle_connection
+      log.info "Reconnecting to RabbitMQ due to ambiguous timeout..."
+      ConeyIsland::Submitter.reconnect
       if self.attempts >= self.retry_limit
         log.error("Request #{self.id} timed out after #{self.timeout} seconds, bailing out after 3 attempts")
         ConeyIsland.poke_the_badger(e, {work_queue: self.ticket, job_id: self.id, job_payload: self.args, reason: 'Bailed out after 3 attempts'})

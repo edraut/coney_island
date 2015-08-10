@@ -104,11 +104,22 @@ module ConeyIsland
       ConeyIsland::Worker.log
     end
 
-    def self.handle_connection
+    def self.disconnect
       if self.connection.present? && self.connection.open?
-        log.info "Connection was already open, closing..."
+        log.info "Disconnecting from RabbitMQ..."
         self.connection.close
+        log.info "Disconnected."
       end
+    rescue StandardError => e
+      log.warn "Failed to disconnect from RabbitMQ cleanly: #{e.inspect}"
+    end
+
+    def self.reconnect
+      disconnect
+      handle_connection
+    end
+
+    def self.handle_connection
       log.info("ConeyIsland::Submitter.handle_connection connecting...")
       self.connection = Bunny.new(self.amqp_parameters)
       log.info("#{Process.pid} Created connection: #{self.connection.inspect}, status: #{self.connection.status}")
