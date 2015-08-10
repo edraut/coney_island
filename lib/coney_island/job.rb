@@ -82,6 +82,8 @@ module ConeyIsland
       log.error(e.message)
       log.error(e.backtrace.join("\n"))
       if retry_on_exception && (self.attempts < self.retry_limit)
+        log.info "Restarting connection..."
+        ConeyIsland::Submitter.handle_connection
         ConeyIsland.poke_the_badger(e, {work_queue: self.ticket, job_payload: self.args, attempt_count: self.attempts})
         log.error("Resubmitting #{self.id} after error on attempt ##{self.attempts}")
         self.attempts += 1

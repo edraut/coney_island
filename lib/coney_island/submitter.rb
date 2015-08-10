@@ -100,12 +100,16 @@ module ConeyIsland
       end
     end
 
+    def self.log
+      ConeyIsland::Worker.log
+    end
+
     def self.handle_connection
-      Rails.logger.info("ConeyIsland::Submitter.handle_connection connecting...")
+      log.info("ConeyIsland::Submitter.handle_connection connecting...")
       self.connection = Bunny.new(self.amqp_parameters)
-      Rails.logger.info("Created connection: #{self.connection.inspect}, status: #{self.connection.status}")
+      log.info("#{Process.pid} Created connection: #{self.connection.inspect}, status: #{self.connection.status}")
       self.start_connection
-      Rails.logger.info("Started connection: #{self.connection.inspect}, status: #{self.connection.status}")
+      log.info("#{Process.pid} Started connection: #{self.connection.inspect}, status: #{self.connection.status}")
 
     rescue Bunny::TCPConnectionFailed, Bunny::PossibleAuthenticationFailureError => e
       self.tcp_connection_retries ||= 0
