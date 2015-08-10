@@ -69,6 +69,8 @@ module ConeyIsland
         execute_job_method
       end
     rescue Timeout::Error => e
+      log.info "Restarting connection due to timeout..."
+      ConeyIsland::Submitter.handle_connection
       if self.attempts >= self.retry_limit
         log.error("Request #{self.id} timed out after #{self.timeout} seconds, bailing out after 3 attempts")
         ConeyIsland.poke_the_badger(e, {work_queue: self.ticket, job_payload: self.args, reason: 'Bailed out after 3 attempts'})
@@ -82,8 +84,6 @@ module ConeyIsland
       log.error(e.message)
       log.error(e.backtrace.join("\n"))
       if retry_on_exception && (self.attempts < self.retry_limit)
-        log.info "Restarting connection..."
-        ConeyIsland::Submitter.handle_connection
         ConeyIsland.poke_the_badger(e, {work_queue: self.ticket, job_payload: self.args, attempt_count: self.attempts})
         log.error("Resubmitting #{self.id} after error on attempt ##{self.attempts}")
         self.attempts += 1

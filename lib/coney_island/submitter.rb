@@ -105,6 +105,10 @@ module ConeyIsland
     end
 
     def self.handle_connection
+      if self.connection.present? && self.connection.open?
+        log.info "Connection was already open, closing..."
+        self.connection.close
+      end
       log.info("ConeyIsland::Submitter.handle_connection connecting...")
       self.connection = Bunny.new(self.amqp_parameters)
       log.info("#{Process.pid} Created connection: #{self.connection.inspect}, status: #{self.connection.status}")
