@@ -38,6 +38,8 @@ module ConeyIsland
           self.submit_all!(args)
         rescue StandardError => e
           Rails.logger.error(e)
+          Rails.logger.error(e.backtrace.join("\n"))
+          Rails.logger.info("Bunny connection: #{self.connection.inspect}, status: #{self.connection.status}")
           ConeyIsland.poke_the_badger(e,{
             code_source: "ConeyIsland::Submitter.submit!",
             message: "Error submitting job",
@@ -101,9 +103,9 @@ module ConeyIsland
     def self.handle_connection
       Rails.logger.info("ConeyIsland::Submitter.handle_connection connecting...")
       self.connection = Bunny.new(self.amqp_parameters)
-      Rails.logger.info("Created connection: #{self.connection.inspect}")
+      Rails.logger.info("Created connection: #{self.connection.inspect}, status: #{self.connection.status}")
       self.start_connection
-      Rails.logger.info("Started connection: #{self.connection.inspect}")
+      Rails.logger.info("Started connection: #{self.connection.inspect}, status: #{self.connection.status}")
 
     rescue Bunny::TCPConnectionFailed, Bunny::PossibleAuthenticationFailureError => e
       self.tcp_connection_retries ||= 0
