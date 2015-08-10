@@ -100,7 +100,7 @@ module ConeyIsland
 
     def self.handle_connection
       Rails.logger.info("ConeyIsland::Submitter.handle_connection connecting...")
-      self.connection = Bunny.new(self.amqp_parameters, threaded: false)
+      self.connection = Bunny.new(self.amqp_parameters)
       self.start_connection
 
     rescue Bunny::TCPConnectionFailed, Bunny::PossibleAuthenticationFailureError => e
