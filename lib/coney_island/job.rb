@@ -65,9 +65,9 @@ module ConeyIsland
 
     def handle_job
       ConeyIsland::Worker.running_jobs << self
-      Timeout::timeout(timeout) do
+      # Timeout::timeout(timeout) do
         execute_job_method
-      end
+      # end
     rescue Timeout::Error => e
       if self.attempts >= self.retry_limit
         log.error("Request #{self.id} timed out after #{self.timeout} seconds, bailing out after 3 attempts")
