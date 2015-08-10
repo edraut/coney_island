@@ -98,9 +98,13 @@ module ConeyIsland
       end
     end
 
+    def self.amqp_defaults
+      { threaded: false }
+    end
+
     def self.handle_connection
       Rails.logger.info("ConeyIsland::Submitter.handle_connection connecting...")
-      self.connection = Bunny.new(self.amqp_parameters)
+      self.connection = Bunny.new((self.amqp_parameters || {}).reverse_merge(self.amqp_defaults))
       self.start_connection
 
     rescue Bunny::TCPConnectionFailed, Bunny::PossibleAuthenticationFailureError => e
