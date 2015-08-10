@@ -21,7 +21,7 @@ Gem::Specification.new do |s|
 
   s.add_dependency "rails", ">= 4.0.1"
   s.add_dependency "amqp", ">= 1.5.0"
-  s.add_dependency "bunny", ">= 1.7.0"
+  s.add_dependency "bunny", "< 2.0"
   s.add_dependency "request_store", ">= 1.0.8"
   s.add_dependency "eventmachine"
 
