@@ -65,18 +65,7 @@ module ConeyIsland
 
     def handle_job
       ConeyIsland::Worker.running_jobs << self
-      Timeout::timeout(timeout) do
-        execute_job_method
-      end
-    rescue Timeout::Error => e
-      if self.attempts >= self.retry_limit
-        log.error("Request #{self.id} timed out after #{self.timeout} seconds, bailing out after 3 attempts")
-        ConeyIsland.poke_the_badger(e, {work_queue: self.ticket, job_payload: self.args, reason: 'Bailed out after 3 attempts'})
-      else
-        log.error("Request #{self.id} timed out after #{self.timeout} seconds on attempt number #{self.attempts}, retrying...")
-        self.attempts += 1
-        ConeyIsland.submit(self.klass, self.method_name, self.resubmit_args)
-      end
+      execute_job_method
     rescue StandardError => e
       log.error("Error executing #{self.class_name}##{self.method_name} #{self.id} for id #{self.instance_id} with args #{self.args}:")
       log.error(e.message)

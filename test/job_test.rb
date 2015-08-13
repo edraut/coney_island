@@ -8,42 +8,6 @@ class JobTest < MiniTest::Test
         @metadata.expect :ack, nil
       end
 
-      it "retries on timeout with correct initial attempt_count and delay" do
-        job = ConeyIsland::Job.new(@metadata,
-          { 'klass' => 'TestModel',
-            'method_name' => :take_too_long,
-            'timeout' => 0.0001 }
-        )
-        capture_submissions = lambda { |klass,method_name,options|
-          ::JobTest.messages[:job_options] ||= []
-          ::JobTest.messages[:job_options] << options
-        }
-        ConeyIsland.stub(:submit, capture_submissions) do
-          job.handle_job
-        end
-        ::JobTest.messages[:job_options].last['attempt_count'].must_equal 2
-        ::JobTest.messages[:job_options].last['delay'].must_equal 2
-      end
-
-      it "retries on timeout with correct subsequent attempt_count and delay" do
-        job = ConeyIsland::Job.new(@metadata,
-          { 'klass' => 'TestModel',
-            'method_name' => :take_too_long,
-            'timeout' => 0.0001,
-            'attempt_count' => 2,
-            'delay' => 2 }
-        )
-        capture_submissions = lambda { |klass,method_name,options|
-          ::JobTest.messages[:job_options] ||= []
-          ::JobTest.messages[:job_options] << options
-        }
-        ConeyIsland.stub(:submit, capture_submissions) do
-          job.handle_job
-        end
-        ::JobTest.messages[:job_options].last['attempt_count'].must_equal 3
-        ::JobTest.messages[:job_options].last['delay'].must_equal 4
-      end
-
       it "bails out on timeout if retry limit reached" do
         ConeyIsland.stop_running_inline
         job = ConeyIsland::Job.new(@metadata,
