@@ -1,4 +1,6 @@
 module ConeyIsland
+  # TODO: Refactor this to instantiate and use instance methods for
+  # ease of testing and thread safety.
   class Submitter
 
     def self.run_inline
@@ -98,6 +100,10 @@ module ConeyIsland
       end
     end
 
+    def self.connected?
+      !!connection && connection.connected?
+    end
+
     def self.handle_connection
       Rails.logger.info("ConeyIsland::Submitter.handle_connection connecting...")
       self.connection = Bunny.new(self.amqp_parameters)
@@ -178,6 +184,9 @@ module ConeyIsland
       # Set our own defaults if we still don't have any
       work_queue ||= ConeyIsland.default_settings[:work_queue]
       delay      ||= ConeyIsland.default_settings[:delay]
+
+      # Make sure we have a connection if we need one
+      handle_connection if !running_inline? && !connected?
 
       if self.running_inline?
         # Just run this inline if we're not threaded
