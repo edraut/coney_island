@@ -6,9 +6,8 @@ module ConeyIsland
   class Configuration
 
     attr_writer :connection, :publisher_connection, :subscriber_connection,
-      :carousels,:amqp_parameters, :tcp_connection_retry_limit,
-      :tcp_connection_retry_seed, :tcp_connection_retry_interval,
-      :delay_seed, :notifier, :log_level
+      :carousels, :max_network_retries, :network_retry_seed,
+      :network_retry_interval, :delay_seed, :notifier, :log_level
 
     def connection
       @connection ||= { host: '127.0.0.1' }
@@ -30,20 +29,20 @@ module ConeyIsland
       }
     end
 
-    def tcp_connection_retry_limit
-      @tcp_connection_retry_limit ||= 6
+    def max_network_retries
+      @max_network_retries ||= 6
     end
 
-    def tcp_connection_retry_seed
-      @tcp_connection_retry_seed ||= 2
+    def network_retry_seed
+      @network_retry_seed ||= 2
+    end
+
+    def network_retry_interval(retries)
+      self.network_retry_seed ** retries
     end
 
     def delay_seed
       @delay_seed ||= 2
-    end
-
-    def tcp_connection_retry_interval(retries)
-      self.tcp_connection_retry_seed ** retries
     end
 
     def notifier

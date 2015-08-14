@@ -1,5 +1,7 @@
 require 'bunny'
+require 'active_support/core_ext/module/delegation'
 
+require 'coney_island/version'
 require 'coney_island/configuration'
 require 'coney_island/worker'
 require 'coney_island/job'
@@ -12,10 +14,10 @@ module ConeyIsland
 
   class << self
 
-    delegate :amqp_parameters, :notifier, to: :configuration
-
+    delegate :connection, :publisher_connection, :subscriber_connection,
+      :notifier, :max_network_retries, :max_network_retries,
+      :network_retry_seed, :network_retry_interval, to: :configuration
     delegate :initialize_background, to: Worker
-
     delegate :run_inline, :running_inline?, :stop_running_inline, :cache_jobs,
       :stop_caching_jobs, :flush_jobs, :submit, to: Submitter
 
@@ -27,7 +29,7 @@ module ConeyIsland
       yield self.configuration if block_given?
     end
 
-    alias :config, :configuration
+    alias :config :configuration
 
     def start_worker
       ConeyIsland::Worker.start

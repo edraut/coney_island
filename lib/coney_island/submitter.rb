@@ -4,6 +4,12 @@ module ConeyIsland
 
     class << self
 
+      delegate :publisher_connection, :max_network_retries,
+        :network_retry_interval, to: ConeyIsland
+
+      attr_writer :connection, :network_retries
+      attr_reader :channel, :exchange, :delay_exchange
+
       def run_inline
         @run_inline = true
       end
@@ -16,14 +22,6 @@ module ConeyIsland
         !!@run_inline
       end
 
-      def tcp_connection_retries=(number)
-        @tcp_connection_retries = number
-      end
-
-      def tcp_connection_retries
-        @tcp_connection_retries
-      end
-
       def submit(*args)
         if RequestStore.store[:cache_jobs]
           job_id = SecureRandom.uuid
@@ -31,38 +29,6 @@ module ConeyIsland
         else
           self.submit!(args)
         end
-      end
-
-      def connection=(conn)
-        @connection = conn
-      end
-
-      def connection
-        @connection
-      end
-
-      def start_connection
-        @connection.start
-      end
-
-      def channel
-        @channel
-      end
-
-      def create_channel
-        @channel = self.connection.create_channel
-      end
-
-      def exchange
-        @exchange
-      end
-
-      def delay_exchange
-        @delay_exchange
-      end
-
-      def amqp_parameters=(params)
-        @amqp_parameters = params
       end
 
       def submit!(args)
@@ -93,29 +59,20 @@ module ConeyIsland
         end
       end
 
-
-      def amqp_parameters
-        if ConeyIsland.single_amqp_connection?
-          ConeyIsland.amqp_parameters
-        else
-          @amqp_parameters
-        end
-      end
-
       def connected?
         !!connection && connection.connected?
       end
 
       def handle_connection
         Rails.logger.info("ConeyIsland::Submitter.handle_connection connecting...")
-        self.connection = Bunny.new(self.amqp_parameters)
-        self.start_connection
+        self.connection = Bunny.new(publisher_connection)
+        start_connection
 
       rescue Bunny::TCPConnectionFailed, Bunny::PossibleAuthenticationFailureError => e
-        self.tcp_connection_retries ||= 0
-        self.tcp_connection_retries += 1
-        if self.tcp_connection_retries >= ConeyIsland.tcp_connection_retry_limit
-          message = "Submitter Failed to connect to RabbitMQ #{ConeyIsland.tcp_connection_retry_limit} times, bailing out"
+        self.network_retries ||= 0
+        self.network_retries += 1
+        if self.network_retries >= max_network_retries
+          message = "Submitter Failed to connect to RabbitMQ #{max_network_retries} times, bailing out"
           Rails.logger.error(message)
           ConeyIsland.poke_the_badger(e, {
             code_source: 'ConeyIsland::Submitter.handle_connection',
@@ -123,37 +80,18 @@ module ConeyIsland
           )
           @connection = nil
         else
-          message = "Failed to connecto to RabbitMQ Attempt ##{self.tcp_connection_retries} time(s), trying again in #{ConeyIsland.tcp_connection_retry_interval(self.tcp_connection_retries)} seconds..."
+          message = "Failed to connecto to RabbitMQ Attempt ##{self.network_retries} time(s), trying again in #{network_retry_interval(self.network_retries)} seconds..."
           Rails.logger.error(message)
-          sleep(ConeyIsland.tcp_connection_retry_interval(self.tcp_connection_retries))
+          sleep(network_retry_interval(self.network_retries))
           retry
         end
       rescue Bunny::ConnectionLevelException => e
-        Rails.logger.error "Submitter Handling a connection-level exception."
-        # Rails.logger.error "Bunny class id : #{e.connection_close.class_id}"
-        # Rails.logger.error "Bunny method id: #{e.connection_close.method_id}"
-        # Rails.logger.error "Status code   : #{e.connection_close.reply_code}"
-        # Rails.logger.error "Error message : #{e.connection_close.reply_text}"
+        Rails.logger.error "Submitter Handling a connection-level exception: #{e.message}"
       rescue Bunny::ChannelLevelException => e
-        Rails.logger.error "Submitter Handling a channel-level exception."
-        Rails.logger.error "Bunny class id : #{e.channel_close.class_id}"
-        Rails.logger.error "Bunny method id: #{e.channel_close.method_id}"
-        Rails.logger.error "Status code   : #{e.channel_close.reply_code}"
-        Rails.logger.error "Error message : #{e.channel_close.reply_text}"
+        Rails.logger.error "Submitter Handling a channel-level exception: #{e.message}"
       else
         self.initialize_rabbit
-        self.tcp_connection_retries = 0
-      end
-
-      def initialize_rabbit
-        self.create_channel
-        @exchange = self.channel.topic('coney_island')
-        @delay_exchange = self.channel.topic('coney_island_delay')
-        @delay_queue = {}
-      end
-
-      def amqp_connection
-        @connection
+        self.network_retries = 0
       end
 
       def publish_job(args, job_id = nil)
@@ -164,9 +102,9 @@ module ConeyIsland
 
         # Check arguments
         # Break if klass isn't a Class or a Module
-        raise ConeyIsland::JobArgumentError.new "Expected #{klass} to be a Class or Module" unless [Class, Module].any? {|k| klass.is_a?(k)}
+        fail ArgumentError, "Expected #{klass} to be a Class or Module" unless [Class, Module].any? {|k| klass.is_a?(k)}
         # Break if method_name isn't a String or a Symbol
-        raise ConeyIsland::JobArgumentError.new "Expected #{method_name} to be a String or a Symbol" unless [String,Symbol].any? {|k| method_name.is_a?(k)}
+        fail ArgumentError, "Expected #{method_name} to be a String or a Symbol" unless [String,Symbol].any? {|k| method_name.is_a?(k)}
 
         # Set defaults
         job_args['klass']       = klass.name
@@ -219,6 +157,21 @@ module ConeyIsland
       end
 
       protected
+
+      def initialize_rabbit
+        self.create_channel
+        @exchange = self.channel.topic('coney_island')
+        @delay_exchange = self.channel.topic('coney_island_delay')
+        @delay_queue = {}
+      end
+
+      def start_connection
+        @connection.start
+      end
+
+      def create_channel
+        @channel = self.connection.create_channel
+      end
 
       # Publishes a job to a delayed queue exchange
       def publish_to_delay_queue(job_id, job_args, work_queue, delay)
