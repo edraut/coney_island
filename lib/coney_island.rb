@@ -1,5 +1,10 @@
 require 'bunny'
+require 'logger'
+require 'json'
+require 'request_store'
+
 require 'active_support/core_ext/module/delegation'
+require 'active_support/core_ext/hash'
 
 require 'coney_island/version'
 require 'coney_island/configuration'
@@ -17,9 +22,15 @@ module ConeyIsland
     delegate :connection, :publisher_connection, :subscriber_connection,
       :notifier, :max_network_retries, :max_network_retries,
       :network_retry_seed, :network_retry_interval, to: :configuration
+
     delegate :initialize_background, to: Worker
+
     delegate :run_inline, :running_inline?, :stop_running_inline, :cache_jobs,
       :stop_caching_jobs, :flush_jobs, :submit, to: Submitter
+
+    def logger
+      @logger ||= Logger.new(STDERR)
+    end
 
     def configuration
       @configuration ||= Configuration.new

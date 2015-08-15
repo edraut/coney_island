@@ -5,7 +5,7 @@ module ConeyIsland
 
   class Configuration
 
-    attr_writer :connection, :publisher_connection, :subscriber_connection,
+    attr_accessor :connection, :publisher_connection, :subscriber_connection,
       :carousels, :max_network_retries, :network_retry_seed,
       :network_retry_interval, :delay_seed, :notifier, :log_level
 

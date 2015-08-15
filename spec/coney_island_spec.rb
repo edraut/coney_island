@@ -7,6 +7,12 @@ describe ConeyIsland do
 
   describe "Public API" do
 
+    describe ".logger" do
+      it "returns a Logger instance" do
+        expect(subject.logger).to be_a Logger
+      end
+    end
+
     describe "Configuration methods" do
 
       [:connection, :publisher_connection, :subscriber_connection,
