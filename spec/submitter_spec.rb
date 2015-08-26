@@ -127,16 +127,14 @@ describe ConeyIsland::Submitter do
         allow(subject).to receive(:sleep) { true }
       end
 
+      after { subject.network_retries = 0 }
+
       it "retries until max_network_retries then re-raises the error" do
         expect(connection).to receive(:start).exactly(subject.max_network_retries).times
+        expect(subject).to receive(:on_connection_error).exactly(subject.max_network_retries).times
         expect { subject.connect! }.to raise_error(error)
       end
 
-      it "pokes the badger" do
-        expect(subject.logger).to receive(:error)
-        expect(subject).to receive(:poke_the_badger)
-        subject.connect! rescue nil
-      end
     end
   end
 

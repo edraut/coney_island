@@ -14,8 +14,6 @@ module ConeyIsland
       :network_retry_interval, :poke_the_badger, :logger]
 
     class << self
-
-
       delegate *CONEY_METHODS, to: ConeyIsland
 
       delegate :store, to: RequestStore
@@ -111,34 +109,37 @@ module ConeyIsland
 
       # We need to rethink how this works and re-raise the exceptions when
       # they are fatal and we can't keep working
-      def handle_connection
+      def connect!
         connection.start
+        initialize_rabbit
+        self.network_retries = 0
       rescue Bunny::TCPConnectionFailed, Bunny::PossibleAuthenticationFailureError
         self.network_retries += 1
         if self.network_retries >= max_network_retries
           message = "Submitter Failed to connect to RabbitMQ #{max_network_retries} times, bailing out"
-          logger.error message
-          poke_the_badger $!, { reason: message }
-          @connection = nil
+          on_connection_error message, $!, severity: :warn
           raise $!
         else
           interval = network_retry_interval(self.network_retries)
           message = "Failed to connecto to RabbitMQ Attempt ##{self.network_retries} time(s), trying again in #{interval} seconds..."
-          logger.error message
-          sleep interval
+          on_connection_error message, $!, severity: :fatal
           retry
         end
       rescue Bunny::ConnectionLevelException, Bunny::ChannelLevelException
-        logger.error "Submitter Handling a #{$!.class.name} exception: #{$!.message}"
+        message =  "Submitter Handling a #{$!.class.name} exception: #{$!.message}"
+        on_connection_error message, $!
         raise $!
-      else
-        initialize_rabbit
-        self.network_retries = 0
       end
 
-      alias :connect! :handle_connection
+      alias :handle_connection :connect!
 
       protected
+
+      def on_connection_error(message, exception, severity: :error)
+        puts "on_connection_error #{message}, #{exception}, #{severity}"
+        logger.send(severity, message)
+        poke_the_badger exception, { reason: message }
+      end
 
       def jobs_cache
         RequestStore.store[:jobs]
