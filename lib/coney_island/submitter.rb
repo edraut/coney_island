@@ -64,13 +64,8 @@ module ConeyIsland
         caching_jobs? ? publish_to_cache(args) : submit!(*args)
       end
 
-      def submit! klass, method_name,
-        args: [], instance_id: nil, job_id: nil, timeout: nil,
-        work_queue: nil, delay: 0
-
-        # Break if klass isn't a Class or a Module
+      def submit! klass, method_name, args: [], instance_id: nil, job_id: nil, timeout: nil, work_queue: nil, delay: 0
         fail ArgumentError, "Expected #{klass} to be a Class or Module" unless [Class, Module].any? {|k| klass.is_a?(k)}
-        # Break if method_name isn't a String or a Symbol
         fail ArgumentError, "Expected #{method_name} to be a String or a Symbol" unless [String,Symbol].any? {|k| method_name.is_a?(k)}
 
         job_args = {
@@ -90,7 +85,6 @@ module ConeyIsland
         work_queue ||= ConeyIsland.default_settings[:work_queue]
         delay      ||= ConeyIsland.default_settings[:delay]
 
-        puts "job_id: #{job_id}, job_args: #{job_args}"
         # Just run this inline if we're not talking to rabbit
         handle_job_inline(job_id,job_args) and return true if running_inline?
 
@@ -118,7 +112,6 @@ module ConeyIsland
       # We need to rethink how this works and re-raise the exceptions when
       # they are fatal and we can't keep working
       def handle_connection
-        self.network_retries = 0
         connection.start
       rescue Bunny::TCPConnectionFailed, Bunny::PossibleAuthenticationFailureError
         self.network_retries += 1
@@ -129,9 +122,10 @@ module ConeyIsland
           @connection = nil
           raise $!
         else
-          message = "Failed to connecto to RabbitMQ Attempt ##{self.network_retries} time(s), trying again in #{network_retry_interval(self.network_retries)} seconds..."
+          interval = network_retry_interval(self.network_retries)
+          message = "Failed to connecto to RabbitMQ Attempt ##{self.network_retries} time(s), trying again in #{interval} seconds..."
           logger.error message
-          sleep network_retry_interval(self.network_retries)
+          sleep interval
           retry
         end
       rescue Bunny::ConnectionLevelException, Bunny::ChannelLevelException

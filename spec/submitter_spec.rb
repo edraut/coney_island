@@ -100,13 +100,47 @@ describe ConeyIsland::Submitter do
 
   end
 
-  describe ".handle_connection" do
-    pending
+  describe ".connect!" do
+    let(:connection) { double.as_null_object }
+
+    before do
+      allow(subject).to receive(:connection) { connection }
+    end
+
+    it "calls start on the connection then initializes rabbit" do
+      expect(connection).to receive(:start)
+      expect(subject).to receive(:initialize_rabbit)
+      subject.connect!
+    end
+
+    it "sets network retries to zero" do
+      subject.network_retries = 1
+      subject.connect!
+      expect(subject.network_retries).to eq 0
+    end
+
+    context "when the connection fails" do
+      let(:error) { Bunny::TCPConnectionFailed.new "something" }
+      before do
+        allow(connection).to receive(:start).and_raise(error)
+        # We really dont want to actually wait here...
+        allow(subject).to receive(:sleep) { true }
+      end
+
+      it "retries until max_network_retries then re-raises the error" do
+        expect(connection).to receive(:start).exactly(subject.max_network_retries).times
+        expect { subject.connect! }.to raise_error(error)
+      end
+
+      it "pokes the badger" do
+        expect(subject.logger).to receive(:error)
+        expect(subject).to receive(:poke_the_badger)
+        subject.connect! rescue nil
+      end
+    end
   end
 
   describe "protected methods" do
-
-
     describe ".jobs_cache" do
 
     end
