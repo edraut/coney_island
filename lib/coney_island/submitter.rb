@@ -10,11 +10,13 @@ module ConeyIsland
   # but caches / flushes jobs automatically in case of network issues.
   class Submitter
 
+    CONEY_METHODS = [:publisher_connection, :max_network_retries,
+      :network_retry_interval, :poke_the_badger, :logger]
+
     class << self
 
-      delegate :publisher_connection, :max_network_retries,
-        :network_retry_interval, :poke_the_badger, :logger,
-        to: ConeyIsland
+
+      delegate *CONEY_METHODS, to: ConeyIsland
 
       delegate :store, to: RequestStore
 
@@ -88,8 +90,9 @@ module ConeyIsland
         work_queue ||= ConeyIsland.default_settings[:work_queue]
         delay      ||= ConeyIsland.default_settings[:delay]
 
+        puts "job_id: #{job_id}, job_args: #{job_args}"
         # Just run this inline if we're not talking to rabbit
-        ConeyIsland::Job.new(job_id, job_args).handle_job and return true if running_inline?
+        handle_job_inline(job_id,job_args) and return true if running_inline?
 
         # Make sure we have a connection if we need one
         connect! unless connected?
@@ -156,6 +159,11 @@ module ConeyIsland
         @exchange       = self.channel.topic('coney_island')
         @delay_exchange = self.channel.topic('coney_island_delay')
         @delay_queue    = {}
+      end
+
+      def handle_job_inline(job_id, job_args)
+        ConeyIsland::Job.new(job_id, job_args).handle_job
+        true
       end
 
       # Publishes a job to a delayed queue exchange
