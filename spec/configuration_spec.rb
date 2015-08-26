@@ -9,8 +9,8 @@ describe ConeyIsland::Configuration do
       expect(subject.connection).to be_a Hash
     end
 
-    it "starts pointing to localhost" do
-      expect(subject.connection[:host]).to eq "127.0.0.1"
+    it "defaults to #{described_class::DEFAULT_CONNECTION}" do
+      expect(subject.connection).to eq described_class::DEFAULT_CONNECTION
     end
   end
 
@@ -45,27 +45,39 @@ describe ConeyIsland::Configuration do
   end
 
   describe "#carousels" do
-    pending
+    it "defaults to #{described_class::DEFAULT_QUEUES}" do
+      expect(subject.carousels).to eq described_class::DEFAULT_QUEUES
+    end
   end
 
   describe "#max_network_retries" do
-    pending
+    it "defaults to #{described_class::DEFAULT_NETWORK_RETRIES}" do
+      expect(subject.max_network_retries).to eq described_class::DEFAULT_NETWORK_RETRIES
+    end
   end
 
   describe "#network_retry_seed" do
-    pending
+    it "defaults to #{described_class::DEFAULT_NETWORK_RETRY_SEED}" do
+      expect(subject.network_retry_seed).to eq described_class::DEFAULT_NETWORK_RETRY_SEED
+    end
   end
 
   describe "#network_retry_interval" do
-    pending
+    it "calculates correctly" do
+      expect(subject.network_retry_interval(2)).to eq subject.network_retry_seed ** 2
+    end
   end
 
   describe "#delay_seed" do
-    pending
+    it "defaults to #{described_class::DEFAULT_DELAY_SEED}" do
+      expect(subject.delay_seed).to eq described_class::DEFAULT_DELAY_SEED
+    end
   end
 
   describe "#notifier" do
-    pending
+    it "defaults to #{described_class::DEFAULT_NOTIFIER}" do
+      expect(subject.notifier).to eq described_class::DEFAULT_NOTIFIER
+    end
   end
 
 

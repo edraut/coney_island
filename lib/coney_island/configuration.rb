@@ -5,12 +5,23 @@ module ConeyIsland
 
   class Configuration
 
+    DEFAULT_CONNECTION = { host: '127.0.0.1' }
+    DEFAULT_QUEUES = {
+      default:   { prefetch_count: 3 },
+      cyclone:   { prefetch_count: 3 },
+      boardwalk: { prefetch_count: 1 }
+    }
+    DEFAULT_NETWORK_RETRIES = 6
+    DEFAULT_NETWORK_RETRY_SEED = 2
+    DEFAULT_DELAY_SEED = 2
+    DEFAULT_NOTIFIER = Notifiers::HoneybadgerNotifier
+
     attr_accessor :connection, :publisher_connection, :subscriber_connection,
       :carousels, :max_network_retries, :network_retry_seed,
       :network_retry_interval, :delay_seed, :notifier, :log_level
 
     def connection
-      @connection ||= { host: '127.0.0.1' }
+      @connection ||= DEFAULT_CONNECTION
     end
 
     def publisher_connection
@@ -22,19 +33,15 @@ module ConeyIsland
     end
 
     def carousels
-      @carousels ||= {
-        default:   { prefetch_count: 3 },
-        cyclone:   { prefetch_count: 3 },
-        boardwalk: { prefetch_count: 1 }
-      }
+      @carousels ||= DEFAULT_QUEUES
     end
 
     def max_network_retries
-      @max_network_retries ||= 6
+      @max_network_retries ||= DEFAULT_NETWORK_RETRIES
     end
 
     def network_retry_seed
-      @network_retry_seed ||= 2
+      @network_retry_seed ||= DEFAULT_NETWORK_RETRY_SEED
     end
 
     def network_retry_interval(retries)
@@ -42,11 +49,11 @@ module ConeyIsland
     end
 
     def delay_seed
-      @delay_seed ||= 2
+      @delay_seed ||= DEFAULT_DELAY_SEED
     end
 
     def notifier
-      @notifier ||= Notifiers::HoneybadgerNotifier
+      @notifier ||= DEFAULT_NOTIFIER
     end
 
     def notifier=(notifier)
