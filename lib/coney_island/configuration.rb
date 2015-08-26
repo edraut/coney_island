@@ -14,11 +14,11 @@ module ConeyIsland
     end
 
     def publisher_connection
-      @publisher_connection || @connection
+      @publisher_connection || self.connection
     end
 
     def subscriber_connection
-      @subscriber_connection || @connection
+      @subscriber_connection || self.connection
     end
 
     def carousels

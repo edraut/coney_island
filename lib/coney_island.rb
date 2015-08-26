@@ -11,7 +11,6 @@ require 'coney_island/configuration'
 require 'coney_island/worker'
 require 'coney_island/job'
 require 'coney_island/submitter'
-require 'coney_island/job_argument_error'
 require 'coney_island/railtie' if defined?(Rails)
 require 'coney_island/performer'
 

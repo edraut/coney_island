@@ -46,7 +46,8 @@ module ConeyIsland
       end
 
       def stop_caching_jobs
-        flush_jobs; store[:cache_jobs] = false
+        flush_jobs
+        store[:cache_jobs] = false
       end
 
       def caching_jobs?
@@ -65,7 +66,6 @@ module ConeyIsland
         args: [], instance_id: nil, job_id: nil, timeout: nil,
         work_queue: nil, delay: 0
 
-        # Check arguments
         # Break if klass isn't a Class or a Module
         fail ArgumentError, "Expected #{klass} to be a Class or Module" unless [Class, Module].any? {|k| klass.is_a?(k)}
         # Break if method_name isn't a String or a Symbol
