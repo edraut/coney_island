@@ -2,6 +2,7 @@ require 'bunny'
 require 'logger'
 require 'json'
 require 'request_store'
+require 'securerandom'
 
 require 'active_support/core_ext/module/delegation'
 require 'active_support/core_ext/hash'
@@ -18,9 +19,9 @@ module ConeyIsland
 
   class << self
 
-    delegate :connection, :publisher_connection, :subscriber_connection,
-      :notifier, :max_network_retries, :max_network_retries,
-      :network_retry_seed, :network_retry_interval, to: :configuration
+    delegate :connection, :carousels, :publisher_connection, :subscriber_connection,
+      :notifier, :max_network_retries, :network_retry_seed, :delay_seed,
+      :network_retry_interval, to: :configuration
 
     delegate :initialize_background, to: Worker
 

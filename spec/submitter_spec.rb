@@ -154,7 +154,6 @@ describe ConeyIsland::Submitter do
     describe ".publish_to_delay_queue" do
 
     end
-
   end
 
 end
