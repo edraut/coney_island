@@ -121,6 +121,8 @@ require 'coney_island/worker'
 require 'coney_island/job'
 require 'coney_island/submitter'
 require 'coney_island/job_argument_error'
-require 'coney_island/railtie' if defined?(Rails)
+if defined?(Rails) && defined?(ActiveJob)
+  require 'coney_island/coney_island_adapter'
+end
 require 'coney_island/performer'
 require 'bunny'
