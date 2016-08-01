@@ -25,7 +25,7 @@ module ConeyIsland
 
     def self.submit(*args)
       if RequestStore.store[:cache_jobs]
-        job_id = SecureRandom.uuid
+        job_id = args.map(&:to_s).join("-")
         RequestStore.store[:jobs][job_id] = args
       else
         self.submit!(args)
@@ -242,4 +242,3 @@ module ConeyIsland
 
   end
 end
-
