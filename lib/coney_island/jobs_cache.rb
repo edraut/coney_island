@@ -1,7 +1,5 @@
 module ConeyIsland
   class JobsCache
-    attr_reader :adapter
-
     delegate :publish_job, to: Submitter
 
     def initialize
