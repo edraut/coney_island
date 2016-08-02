@@ -15,7 +15,7 @@ class ConeyIslandTest < MiniTest::Test
       my_array = []
       ConeyIsland.cache_jobs
       ConeyIsland.submit(TestModel, :add_to_list, args: [my_array])
-      RequestStore.store[:jobs].length.must_equal 1
+      ConeyIsland::Submitter.cached_jobs.length.must_equal 1
       my_array.length.must_equal 0
       ConeyIsland.flush_jobs
       my_array.first.must_equal 'Added one!'

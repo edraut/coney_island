@@ -54,6 +54,7 @@ GEM
     builder (3.2.2)
     bunny (1.7.1)
       amq-protocol (~> 1.9.2)
+    coderay (1.1.0)
     erubis (2.7.0)
     eventmachine (1.0.8)
     globalid (0.3.6)
@@ -64,11 +65,18 @@ GEM
       nokogiri (>= 1.5.9)
     mail (2.6.3)
       mime-types (>= 1.16, < 3)
+    method_source (0.8.2)
     mime-types (2.99)
     mini_portile2 (2.0.0)
     minitest (5.5.1)
     nokogiri (1.6.7.1)
       mini_portile2 (~> 2.0.0.rc2)
+    pry (0.10.1)
+      coderay (~> 1.1.0)
+      method_source (~> 0.8.1)
+      slop (~> 3.4)
+    pry-nav (0.2.4)
+      pry (>= 0.9.10, < 0.11.0)
     rack (1.6.4)
     rack-test (0.6.3)
       rack (>= 1.0)
@@ -98,6 +106,7 @@ GEM
       thor (>= 0.18.1, < 2.0)
     rake (10.5.0)
     request_store (1.2.1)
+    slop (3.6.0)
     sprockets (3.3.5)
       rack (> 1, < 3)
     sprockets-rails (2.3.3)
@@ -116,7 +125,8 @@ PLATFORMS
 DEPENDENCIES
   coney_island!
   minitest
+  pry-nav
   sqlite3
 
 BUNDLED WITH
-   1.10.6
+   1.11.2
