@@ -1,4 +1,8 @@
 module ConeyIsland
+  # Handles job caching hijinks. This is especially useful for Rails apps where
+  # you can set Coney to cache jobs at the beginning of the request and flush
+  # them once you the request is served. Most methods are exposed by ConeyIsland
+  # so you'd just use ConeyIsland.cache_jobs, ConeyIsland.flush_jobs.
   class JobsCache
     delegate :submit!, to: Submitter
 
@@ -8,25 +12,30 @@ module ConeyIsland
       self.caching_jobs = false
     end
 
+    # Are we caching jobs?
     def caching_jobs?
       !! caching_jobs
     end
 
+    # Start caching jobs
     def cache_jobs
       self.caching_jobs = true
       self
     end
 
+    # Stop caching jobs
     def stop_caching_jobs
       self.caching_jobs = false
       self
     end
 
+    # Cache a job with the given args
     def cache_job(*args)
       self.cached_jobs[generate_id(*args)] = args
       self
     end
 
+    # Publish all the cached jobs
     def flush_jobs
       # Get all the jobs, one at a time, pulling from the list
       while job = self.cached_jobs.shift
@@ -38,6 +47,7 @@ module ConeyIsland
       self
     end
 
+    # List of the currently cached jobs, anxiously waiting to be flushed
     def cached_jobs
       @adapter.store[:jobs]
     end

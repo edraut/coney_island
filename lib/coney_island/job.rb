@@ -17,7 +17,7 @@ module ConeyIsland
       @class_name = args['klass']
       @klass = @class_name.constantize
       @method_args = args['args']
-      # Symbolize hash keys for consistency and for keyword arguments
+      # Symbolize hash keys for consistency and keyword arguments
       @method_args.each { |v| v.symbolize_keys! if v.is_a?(Hash) } if !!@method_args
       @attempts = args['attempt_count'] || 1
       @retry_limit = args['retry_limit'] || 3
