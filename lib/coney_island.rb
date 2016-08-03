@@ -35,7 +35,16 @@ module ConeyIsland
   end
 
   def self.notifier
-    @notifier ||= "ConeyIsland::Notifiers::#{self.config[:notifier_service]}Notifier".constantize
+    @notifier ||= case self.config[:notifier]
+    when :airbrake
+      Notifiers::AirbrakeNotifier
+    when :bugsnag
+      Notifiers::BugsnagNotifier
+    when :honeybadger
+      Notifiers::HoneybadgerNotifier
+    else
+      fail ArgumentError, "#{self.config[:notifier]} is an invalid notifier. Valid options: :airbrake, :bugsnag, :honeybadger"
+    end
   end
 
   def self.config=(config_hash)
