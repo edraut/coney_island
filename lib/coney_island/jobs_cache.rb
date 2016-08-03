@@ -1,10 +1,10 @@
 module ConeyIsland
   class JobsCache
-    delegate :publish_job, to: Submitter
+    delegate :submit!, to: Submitter
 
     def initialize
       @adapter = RequestStore
-      self.cached_jobs = {}
+      self.cached_jobs  = {}
       self.caching_jobs = false
     end
 
@@ -24,12 +24,18 @@ module ConeyIsland
 
     def cache_job(*args)
       self.cached_jobs[generate_id(*args)] = args
+      self
     end
 
     def flush_jobs
+      # Get all the jobs, one at a time, pulling from the list
       while job = self.cached_jobs.shift
-        publish_job(job[1], job[0])
+        # Map the array to the right things
+        job_id, args = *job
+        # Submit! takes care of rescuing, error logging, etc and never caches
+        submit! args, job_id
       end
+      self
     end
 
     def cached_jobs

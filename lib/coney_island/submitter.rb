@@ -40,21 +40,17 @@ module ConeyIsland
       end
     end
 
-    def self.submit!(args)
-      if running_inline?
-        self.publish_job(args)
-      else
-        begin
-          self.publish_job(args)
-        rescue StandardError => e
-          Rails.logger.error(e)
-          ConeyIsland.poke_the_badger(e,{
-            code_source: "ConeyIsland::Submitter.submit!",
-            message: "Error submitting job",
-            job_args: args
-            })
-        end
-      end
+    def self.submit!(args, job_id = nil)
+      Rails.logger.info "Submitting job #{job_id}: #{args}"
+      self.publish_job(args, job_id)
+    rescue StandardError => e
+      Rails.logger.error(e)
+      ConeyIsland.poke_the_badger(e,{
+        code_source: "ConeyIsland::Submitter.submit!",
+        message: "Error submitting job",
+        job_args: args
+        })
+      raise e if running_inline?
     end
 
     def self.connection=(conn)
@@ -151,6 +147,7 @@ module ConeyIsland
       @connection
     end
 
+    # TODO: Document me
     def self.publish_job(args, job_id = nil)
       # Map arguments
       klass, method_name, job_args = *args

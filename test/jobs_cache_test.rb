@@ -53,6 +53,14 @@ class JobsCacheTest < MiniTest::Test
         @instance.cached_jobs.keys.include?("String-to_s").must_equal true
         @instance.cached_jobs["String-to_s"].must_equal args
       end
+
+      it "understand string keys" do
+        args = [String, :to_s, { 'idempotent' => true }]
+        @instance.cache_job(*args)
+        @instance.cached_jobs.keys.include?("String-to_s").must_equal true
+        @instance.cached_jobs["String-to_s"].must_equal args
+      end
+
     end
 
   end
