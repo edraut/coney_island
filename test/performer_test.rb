@@ -106,15 +106,8 @@ class PerformerTest < MiniTest::Test
 
   describe 'highlander option' do
 
-    def setup
-      ConeyIsland.flush_jobs # flush before doing anything to prevent leaks
-      ConeyIsland.cache_jobs
-    end
-
-    def teardown
-      ConeyIsland.flush_jobs
-      ConeyIsland.stop_caching_jobs
-    end
+    before { ConeyIsland.flush_jobs; ConeyIsland.cache_jobs }
+    after  { ConeyIsland.flush_jobs; ConeyIsland.stop_caching_jobs }
 
     it "is understood by performers" do
       5.times { MyHighlander.increment_async }
