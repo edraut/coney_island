@@ -1,0 +1,4 @@
+database:
+  override:
+    # DB is a NOOP for Coney
+    - pwd

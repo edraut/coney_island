@@ -105,7 +105,7 @@ module ConeyIsland
   end
 
   def self.cached_jobs
-    ConeyIsland::Submitter.jobs_cache.cached_jobs
+    ConeyIsland::Submitter.cached_jobs
   end
 
   def self.submit(*args)
