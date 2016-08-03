@@ -3,18 +3,20 @@ module ConeyIsland
 
     def self.included(base)
       base.extend ClassMethods
+      delegate :get_coney_settings, to: :class
       # http://apidock.com/rails/Class/class_attribute
       base.class_attribute :coney_island_settings
     end
+
 
     def method_missing(method_name, *args)
       method_str = method_name.to_s
       if method_str =~ /.*_async$/
         synchronous_method = method_str.sub(/_async$/, '')
         if self.respond_to?(:id) && self.class.respond_to?(:find)
-          ConeyIsland.submit(self.class, synchronous_method, instance_id: self.id, args: args)
+          ConeyIsland.submit(self.class, synchronous_method, instance_id: self.id, args: args, highlander: get_coney_settings[:highlander])
         else
-          ConeyIsland.submit(self.class, synchronous_method, singleton: true, args: args)
+          ConeyIsland.submit(self.class, synchronous_method, singleton: true, args: args, highlander: get_coney_settings[:highlander])
         end
       else
         super
@@ -51,7 +53,7 @@ module ConeyIsland
         method_str = method_name.to_s
         if method_str =~ /.*_async$/
           synchronous_method = method_str.sub(/_async$/, '')
-          ConeyIsland.submit(self, synchronous_method, args: args)
+          ConeyIsland.submit(self, synchronous_method, args: args, highlander: get_coney_settings[:highlander])
         else
           super
         end
