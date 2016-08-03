@@ -6,7 +6,7 @@ module ConeyIsland
 
     def initialize(metadata, args)
       @args = args
-      @id = SecureRandom.uuid
+      @id = args['job_id'] || SecureRandom.uuid
       @dont_log = args['dont_log']
       self.log.info ("Starting job #{@id}: #{@args}") unless self.dont_log
       @delay = args['delay'].to_i if args['delay']
