@@ -39,23 +39,23 @@ class JobsCacheTest < MiniTest::Test
     end
 
     describe :cache_job do
-      it "adds a job to the cache with a uuid (idempotent not true)" do
+      it "adds a job to the cache with a uuid (highlander not true)" do
         SecureRandom.stub :uuid, "asdf" do
-          args = [String, :to_s, { idempotent: false }]
+          args = [String, :to_s, { highlander: false }]
           @instance.cache_job(*args)
           assert_equal @instance.cached_jobs["asdf"], args
         end
       end
 
-      it "adds a job to the cache with an idempotent key (idempotent true)" do
-        args = [String, :to_s, { idempotent: true }]
+      it "adds a job to the cache with an idempotent key (highlander true)" do
+        args = [String, :to_s, { highlander: true }]
         @instance.cache_job(*args)
         @instance.cached_jobs.keys.include?("String-to_s").must_equal true
         @instance.cached_jobs["String-to_s"].must_equal args
       end
 
       it "understand string keys" do
-        args = [String, :to_s, { 'idempotent' => true }]
+        args = [String, :to_s, { 'highlander' => true }]
         @instance.cache_job(*args)
         @instance.cached_jobs.keys.include?("String-to_s").must_equal true
         @instance.cached_jobs["String-to_s"].must_equal args

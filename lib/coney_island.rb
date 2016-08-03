@@ -120,7 +120,7 @@ module ConeyIsland
   end
 
   def self.default_settings
-    { work_queue: 'default', timeout: 30, delay: 0 }
+    { work_queue: 'default', timeout: 30, delay: 0, highlander: false }
   end
 
 end
@@ -136,3 +136,4 @@ if defined?(Rails) && defined?(ActiveJob)
 end
 require 'coney_island/performer'
 require 'bunny'
+require 'active_support/core_ext/hash/indifferent_access'

@@ -59,8 +59,8 @@ module ConeyIsland
     def generate_id(*args)
       # Duplicate the args so we don't mess with the original
       _args = args.dup
-      # Do we have job arguments and idempotent is true?
-      if _args.last.is_a?(Hash) && !!_args.pop[:idempotent]
+      # Do we have job arguments and highlander is true?
+      if _args.last.is_a?(Hash) && !!ActiveSupport::HashWithIndifferentAccess.new(_args.pop)[:highlander]
         # We simply generate an id based on the class, method, arguments signature
         # NOTE: Should we carry over the hash args part for this?
         _args.map(&:to_s).join("-")

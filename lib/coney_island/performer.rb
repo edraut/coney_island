@@ -31,8 +31,13 @@ module ConeyIsland
       #   :timeout - Timeout the job with retry. The timeout value is a number
       #     of seconds. By default ConeyIsland will retry 3 times before bailing
       #     out.
+      #   :highlander - There can only be one job with the same arguments per
+      # request lifecycle. This makes it so that even if you enqueue the same
+      # job with the same arguments twice, it will only fire once.
+      # Only makes sense when caching jobs (like in a Rails app where you can
+      # cache jobs and flush them all at once after the end of the request)
       def set_background_defaults(options = {})
-        options = options.dup.symbolize_keys.slice(:work_queue, :delay, :timeout)
+        options = options.dup.symbolize_keys.slice(:work_queue, :delay, :timeout, :highlander)
         self.coney_island_settings = get_coney_settings.merge(options)
       end
 
