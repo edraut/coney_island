@@ -8,8 +8,6 @@ module ConeyIsland
 
     def initialize
       @adapter = RequestStore
-      self.cached_jobs  = {}
-      self.caching_jobs = false
     end
 
     # Are we caching jobs?
@@ -49,14 +47,10 @@ module ConeyIsland
 
     # List of the currently cached jobs, anxiously waiting to be flushed
     def cached_jobs
-      @adapter.store[:jobs]
+      @adapter.store[:jobs] ||= {}
     end
 
     protected
-
-    def cached_jobs=(something)
-      @adapter.store[:jobs] = something
-    end
 
     def caching_jobs
       @adapter.store[:caching_jobs]
@@ -72,7 +66,6 @@ module ConeyIsland
       # Do we have job arguments and highlander is true?
       if _args.last.is_a?(Hash) && !!ActiveSupport::HashWithIndifferentAccess.new(_args.pop)[:highlander]
         # We simply generate an id based on the class, method, arguments signature
-        # NOTE: Should we carry over the hash args part for this?
         _args.map(&:to_s).join("-")
       else
         # We generate a new id every time
