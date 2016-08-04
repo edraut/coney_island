@@ -7,6 +7,10 @@ class JobsCacheTest < MiniTest::Test
       @instance.flush_jobs
     end
 
+    after do
+      @instance.clear
+    end
+
     describe :initialize do
       it "assigns RequestStore to the @adapter" do
         assert_equal @instance.instance_variable_get(:@adapter), RequestStore

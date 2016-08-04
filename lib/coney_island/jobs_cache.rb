@@ -50,7 +50,16 @@ module ConeyIsland
       @adapter.store[:jobs] ||= {}
     end
 
+    def clear
+      self.caching_jobs = false
+      self.cached_jobs  = {}
+    end
+
     protected
+
+    def cached_jobs=(something)
+      @adapter.store[:jobs] = something
+    end
 
     def caching_jobs
       @adapter.store[:caching_jobs]
