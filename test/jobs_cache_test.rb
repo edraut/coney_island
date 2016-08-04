@@ -4,6 +4,7 @@ class JobsCacheTest < MiniTest::Test
   describe ConeyIsland::JobsCache do
     before do
       @instance = ConeyIsland::JobsCache.new
+      @instance.flush_jobs
     end
 
     describe :initialize do
