@@ -112,10 +112,6 @@ module ConeyIsland
     ConeyIsland::Submitter.flush_jobs
   end
 
-  def self.cached_jobs
-    ConeyIsland::Submitter.cached_jobs
-  end
-
   def self.submit(*args)
     ConeyIsland::Submitter.submit(*args)
   end
