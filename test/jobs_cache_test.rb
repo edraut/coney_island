@@ -23,6 +23,18 @@ class JobsCacheTest < MiniTest::Test
       end
     end # /caching_jobs?
 
+    describe :caching_jobs do
+      it "calls cache jobs, the block, flush jobs, doesn't change the caching_jobs flag" do
+        was_caching = @instance.caching_jobs?
+        @instance.expects(:cache_jobs)
+        block = -> { puts "Ohai!" }
+        block.expects(:call)
+        @instance.expects(:flush_jobs)
+        @instance.caching_jobs(&block)
+        assert_equal was_caching, @instance.caching_jobs?
+      end
+    end
+
     describe :cache_jobs do
       it "flips caching jobs to true" do
         @instance.cache_jobs
