@@ -27,34 +27,6 @@ class SubmitterTest < MiniTest::Test
       end
     end
 
-
-    describe :caching_jobs do
-      it "caches job for the duration of the block" do
-        jobs_cache = ConeyIsland::Submitter.jobs_cache
-        def jobs_cache.cache_job(*args)
-          SubmitterTest.messages[:it_passes_here] = true
-        end
-        assert_equal ConeyIsland::Submitter.caching_jobs?, false
-        ConeyIsland::Submitter.caching_jobs do
-          ConeyIsland.submit String, :inspect
-        end
-        assert_equal SubmitterTest.messages[:it_passes_here], true
-        assert_equal ConeyIsland::Submitter.caching_jobs?, false
-      end
-
-      it "flushes the jobs after the block" do
-        jobs_cache = ConeyIsland::Submitter.jobs_cache
-        def jobs_cache.flush_jobs
-          SubmitterTest.messages[:flushed] = true
-        end
-        ConeyIsland::Submitter.caching_jobs do
-          ConeyIsland.submit String, :inspect
-        end
-        assert_equal SubmitterTest.messages[:flushed], true
-      end
-    end
-
-
     describe "error handling" do
       it "breaks if klass is not a class or a Module" do
         error = assert_raises(ConeyIsland::JobArgumentError) do
