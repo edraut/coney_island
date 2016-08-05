@@ -8,6 +8,7 @@ require 'minitest/autorun'
 require 'minitest/pride'
 require 'request_store'
 require 'amqp'
+require 'mocha/mini_test'
 
 Rails.backtrace_cleaner.remove_silencers!
 # Load support files
