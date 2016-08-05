@@ -4,7 +4,7 @@ module ConeyIsland
   class Submitter
 
     class << self
-      delegate :caching_jobs?, :cached_jobs, :cache_job, :cache_jobs,
+      delegate :caching_jobs?, :caching_jobs, :cached_jobs, :cache_job, :cache_jobs,
         :stop_caching_jobs, :flush_jobs, to: :jobs_cache
     end
 
@@ -36,13 +36,13 @@ module ConeyIsland
       if caching_jobs?
         cache_job(*args)
       else
-        self.submit!(args)
+        submit!(args)
       end
     end
 
     def self.submit!(args, job_id = nil)
       Rails.logger.info "Submitting job #{job_id}: #{args}"
-      self.publish_job(args, job_id)
+      publish_job(args, job_id)
     rescue StandardError => e
       Rails.logger.error(e)
       ConeyIsland.poke_the_badger(e,{

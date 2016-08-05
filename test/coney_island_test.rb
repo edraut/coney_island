@@ -12,8 +12,8 @@ class ConeyIslandTest < MiniTest::Test
 
     it "caches jobs" do
       ConeyIsland.run_inline
+      ConeyIsland::Submitter.jobs_cache.clear
       my_array = []
-      ConeyIsland.flush_jobs
       ConeyIsland.cache_jobs
       ConeyIsland.submit(TestModel, :add_to_list, args: [my_array])
       ConeyIsland::Submitter.cached_jobs.length.must_equal 1

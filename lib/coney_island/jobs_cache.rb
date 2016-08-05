@@ -12,18 +12,28 @@ module ConeyIsland
 
     # Are we caching jobs?
     def caching_jobs?
-      !! caching_jobs
+      !! is_caching_jobs
     end
 
     # Start caching jobs
     def cache_jobs
-      self.caching_jobs = true
+      self.is_caching_jobs = true
       self
     end
 
     # Stop caching jobs
     def stop_caching_jobs
-      self.caching_jobs = false
+      self.is_caching_jobs = false
+      self
+    end
+
+    # Caches jobs for the duration of the block, flushes them at the end.
+    def caching_jobs(&blk)
+      @was_caching = caching_jobs?
+      cache_jobs
+      blk.call
+      flush_jobs
+      self.is_caching_jobs = @was_caching
       self
     end
 
@@ -51,7 +61,7 @@ module ConeyIsland
     end
 
     def clear
-      self.caching_jobs = false
+      self.is_caching_jobs = false
       self.cached_jobs  = {}
     end
 
@@ -61,11 +71,11 @@ module ConeyIsland
       @adapter.store[:jobs] = something
     end
 
-    def caching_jobs
+    def is_caching_jobs
       @adapter.store[:caching_jobs]
     end
 
-    def caching_jobs=(boolean)
+    def is_caching_jobs=(boolean)
       @adapter.store[:caching_jobs] = boolean
     end
 

@@ -96,8 +96,16 @@ module ConeyIsland
     ConeyIsland::Submitter.cache_jobs
   end
 
+  def self.cached_jobs
+    ConeyIsland::Submitter.cached_jobs
+  end
+
   def self.stop_caching_jobs
     ConeyIsland::Submitter.stop_caching_jobs
+  end
+
+  def self.caching_jobs(&blk)
+    ConeyIsland::Submitter.caching_jobs(&blk)
   end
 
   def self.flush_jobs
