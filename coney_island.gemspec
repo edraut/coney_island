@@ -25,7 +25,7 @@ Gem::Specification.new do |s|
   s.add_dependency "request_store", [">= 1.0.8", "<2"]
   s.add_dependency "eventmachine", "<2"
 
-  s.add_development_dependency "sqlite3"
-  s.add_development_dependency "minitest"
-  s.add_development_dependency "mocha"
+  s.add_development_dependency "sqlite3", '~> 0'
+  s.add_development_dependency "minitest", '~> 0'
+  s.add_development_dependency "mocha", '~> 0'
 end
