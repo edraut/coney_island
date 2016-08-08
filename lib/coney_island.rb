@@ -35,15 +35,17 @@ module ConeyIsland
   end
 
   def self.notifier
-    @notifier ||= case self.config[:notifier]
+    case self.config[:notifier]
     when :airbrake
       Notifiers::AirbrakeNotifier
     when :bugsnag
       Notifiers::BugsnagNotifier
     when :honeybadger
       Notifiers::HoneybadgerNotifier
+    when :none
+      Notifiers::NullNotifier
     else
-      fail ArgumentError, "#{self.config[:notifier]} is an invalid notifier. Valid options: :airbrake, :bugsnag, :honeybadger"
+      fail ConfigurationError, "#{self.config[:notifier]} is an invalid notifier. Valid options: :airbrake, :bugsnag, :honeybadger, :none"
     end
   end
 
@@ -116,7 +118,7 @@ module ConeyIsland
     ConeyIsland::Submitter.submit(*args)
   end
 
-  def self.poke_the_badger(message, context, attempts = 1)
+  def self.poke_the_badger(message, context = {}, attempts = 1)
     Timeout::timeout(3) do
       self.notifier.notify(message, context)
     end
@@ -133,15 +135,27 @@ module ConeyIsland
 
 end
 
+# RabbitMQ
+require 'bunny'
+# Active Support
+require 'active_support/core_ext/hash/indifferent_access'
+require 'active_support/core_ext/module/delegation'
+require 'active_support/core_ext/string/inflections'
+
+require 'coney_island/configuration_error'
+require 'coney_island/job_argument_error'
+
+require 'coney_island/notifiers/base_notifier'
+require 'coney_island/notifiers/airbrake_notifier'
+require 'coney_island/notifiers/bugsnag_notifier'
 require 'coney_island/notifiers/honeybadger_notifier'
+require 'coney_island/notifiers/null_notifier'
+
 require 'coney_island/worker'
 require 'coney_island/job'
 require 'coney_island/submitter'
 require 'coney_island/jobs_cache'
-require 'coney_island/job_argument_error'
 if defined?(Rails) && defined?(ActiveJob)
   require 'coney_island/coney_island_adapter'
 end
 require 'coney_island/performer'
-require 'bunny'
-require 'active_support/core_ext/hash/indifferent_access'
