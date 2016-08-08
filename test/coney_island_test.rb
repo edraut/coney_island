@@ -46,7 +46,8 @@ class ConeyIslandTest < MiniTest::Test
 
     it "fails when passing an unknown notifier" do
       ConeyIsland.config = { notifier: :baba_yaga }
-      assert_raises(ConeyIsland::ConfigurationError) { ConeyIsland.notifier.notify("ayy lmao") }
+      error = assert_raises(ConeyIsland::ConfigurationError) { ConeyIsland.notifier.notify("ayy lmao") }
+      assert_match /baba_yaga is an invalid notifier/, error.message
     end
   end
 end
