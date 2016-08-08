@@ -29,11 +29,11 @@ module ConeyIsland
 
     # Caches jobs for the duration of the block, flushes them at the end.
     def caching_jobs(&blk)
-      @was_caching = caching_jobs?
+      _was_caching = caching_jobs?
       cache_jobs
       blk.call
       flush_jobs
-      self.is_caching_jobs = @was_caching
+      self.is_caching_jobs = _was_caching
       self
     end
 
