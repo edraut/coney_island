@@ -50,7 +50,7 @@ module ConeyIsland
         message: "Error submitting job",
         job_args: args
         })
-      raise e if running_inline?
+      fail e if running_inline?
     end
 
     def self.connection=(conn)
