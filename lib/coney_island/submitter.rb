@@ -3,6 +3,11 @@ module ConeyIsland
   # ease of testing and thread safety.
   class Submitter
 
+    class << self
+      delegate :caching_jobs?, :caching_jobs, :cached_jobs, :cache_job, :cache_jobs,
+        :stop_caching_jobs, :flush_jobs, to: :jobs_cache
+    end
+
     def self.run_inline
       @run_inline = true
     end
@@ -23,41 +28,29 @@ module ConeyIsland
       @tcp_connection_retries
     end
 
+    def self.jobs_cache
+      @jobs_cache ||= JobsCache.new
+    end
+
     def self.submit(*args)
-      if RequestStore.store[:cache_jobs]
-        job_id = SecureRandom.uuid
-        RequestStore.store[:jobs][job_id] = args
+      if caching_jobs?
+        cache_job(*args)
       else
-        self.submit!(args)
+        submit!(args)
       end
     end
 
-    def self.submit!(args)
-      if @run_inline
-        self.submit_all!(args)
-      else
-        begin
-          self.submit_all!(args)
-        rescue StandardError => e
-          Rails.logger.error(e)
-          ConeyIsland.poke_the_badger(e,{
-            code_source: "ConeyIsland::Submitter.submit!",
-            message: "Error submitting job",
-            job_args: args
-            })
-        end
-      end
-    end
-
-    def self.submit_all!(args)
-      if :all_cached_jobs == args
-        Rails.logger.info("ConeyIsland::Submitter.submit! about to iterate over this many jobs: #{RequestStore.store[:jobs].length}")
-        RequestStore.store[:jobs].each do |job_id,job_args|
-          self.publish_job(job_args,job_id)
-        end
-      else
-        self.publish_job(args)
-      end
+    def self.submit!(args, job_id = nil)
+      Rails.logger.info "Submitting job #{job_id}: #{args}"
+      publish_job(args, job_id)
+    rescue StandardError => e
+      Rails.logger.error(e)
+      ConeyIsland.poke_the_badger(e,{
+        code_source: "ConeyIsland::Submitter.submit!",
+        message: "Error submitting job",
+        job_args: args
+        })
+      fail e if running_inline?
     end
 
     def self.connection=(conn)
@@ -154,6 +147,7 @@ module ConeyIsland
       @connection
     end
 
+    # TODO: Document me
     def self.publish_job(args, job_id = nil)
       # Map arguments
       klass, method_name, job_args = *args
@@ -203,19 +197,6 @@ module ConeyIsland
       true
     end
 
-    def self.cache_jobs
-      RequestStore.store[:cache_jobs] = true
-      RequestStore.store[:jobs] = {}
-    end
-
-    def self.flush_jobs
-      self.submit!(:all_cached_jobs) if RequestStore.store[:jobs].any?
-    end
-
-    def self.stop_caching_jobs
-      RequestStore.store[:cache_jobs] = false
-    end
-
     protected
 
     # Publishes a job to a delayed queue exchange
@@ -242,4 +223,3 @@ module ConeyIsland
 
   end
 end
-

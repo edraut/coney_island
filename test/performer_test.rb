@@ -103,6 +103,29 @@ class PerformerTest < MiniTest::Test
       singleton_mock.verify
     end
   end
+
+  describe 'highlander option' do
+
+    before { ConeyIsland.flush_jobs; ConeyIsland.cache_jobs }
+    after  { ConeyIsland.flush_jobs; ConeyIsland.stop_caching_jobs }
+
+    it "is understood by performers" do
+      5.times { MyHighlander.increment_async }
+      assert_equal 1, ConeyIsland.cached_jobs.length
+    end
+  end
+end
+
+class MyHighlander
+  include ConeyIsland::Performer
+
+  set_background_defaults highlander: true
+  cattr_reader :counter
+  @@counter = 0
+
+  def self.increment
+    @@counter += 1
+  end
 end
 
 class MySingleton

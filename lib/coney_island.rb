@@ -35,7 +35,18 @@ module ConeyIsland
   end
 
   def self.notifier
-    @notifier ||= "ConeyIsland::Notifiers::#{self.config[:notifier_service]}Notifier".constantize
+    case self.config[:notifier]
+    when :airbrake
+      Notifiers::AirbrakeNotifier
+    when :bugsnag
+      Notifiers::BugsnagNotifier
+    when :honeybadger
+      Notifiers::HoneybadgerNotifier
+    when :none
+      Notifiers::NullNotifier
+    else
+      fail ConfigurationError, "#{self.config[:notifier]} is an invalid notifier. Valid options: :airbrake, :bugsnag, :honeybadger, :none"
+    end
   end
 
   def self.config=(config_hash)
@@ -87,8 +98,16 @@ module ConeyIsland
     ConeyIsland::Submitter.cache_jobs
   end
 
+  def self.cached_jobs
+    ConeyIsland::Submitter.cached_jobs
+  end
+
   def self.stop_caching_jobs
     ConeyIsland::Submitter.stop_caching_jobs
+  end
+
+  def self.caching_jobs(&blk)
+    ConeyIsland::Submitter.caching_jobs(&blk)
   end
 
   def self.flush_jobs
@@ -99,7 +118,7 @@ module ConeyIsland
     ConeyIsland::Submitter.submit(*args)
   end
 
-  def self.poke_the_badger(message, context, attempts = 1)
+  def self.poke_the_badger(message, context = {}, attempts = 1)
     Timeout::timeout(3) do
       self.notifier.notify(message, context)
     end
@@ -111,18 +130,32 @@ module ConeyIsland
   end
 
   def self.default_settings
-    { work_queue: 'default', timeout: 30, delay: 0 }
+    { work_queue: 'default', timeout: 30, delay: 0, highlander: false }
   end
 
 end
 
+# RabbitMQ
+require 'bunny'
+# Active Support
+require 'active_support/core_ext/hash/indifferent_access'
+require 'active_support/core_ext/module/delegation'
+require 'active_support/core_ext/string/inflections'
+
+require 'coney_island/configuration_error'
+require 'coney_island/job_argument_error'
+
+require 'coney_island/notifiers/base_notifier'
+require 'coney_island/notifiers/airbrake_notifier'
+require 'coney_island/notifiers/bugsnag_notifier'
 require 'coney_island/notifiers/honeybadger_notifier'
+require 'coney_island/notifiers/null_notifier'
+
 require 'coney_island/worker'
 require 'coney_island/job'
 require 'coney_island/submitter'
-require 'coney_island/job_argument_error'
+require 'coney_island/jobs_cache'
 if defined?(Rails) && defined?(ActiveJob)
   require 'coney_island/coney_island_adapter'
 end
 require 'coney_island/performer'
-require 'bunny'

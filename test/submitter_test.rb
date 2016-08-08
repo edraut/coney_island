@@ -26,6 +26,7 @@ class SubmitterTest < MiniTest::Test
         @exchange.verify
       end
     end
+
     describe "error handling" do
       it "breaks if klass is not a class or a Module" do
         error = assert_raises(ConeyIsland::JobArgumentError) do

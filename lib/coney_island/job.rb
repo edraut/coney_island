@@ -6,7 +6,7 @@ module ConeyIsland
 
     def initialize(metadata, args)
       @args = args
-      @id = SecureRandom.uuid
+      @id = args['job_id'] || SecureRandom.uuid
       @dont_log = args['dont_log']
       self.log.info ("Starting job #{@id}: #{@args}") unless self.dont_log
       @delay = args['delay'].to_i if args['delay']
@@ -17,7 +17,7 @@ module ConeyIsland
       @class_name = args['klass']
       @klass = @class_name.constantize
       @method_args = args['args']
-      # Symbolize hash keys for consistency and for keyword arguments
+      # Symbolize hash keys for consistency and keyword arguments
       @method_args.each { |v| v.symbolize_keys! if v.is_a?(Hash) } if !!@method_args
       @attempts = args['attempt_count'] || 1
       @retry_limit = args['retry_limit'] || 3
