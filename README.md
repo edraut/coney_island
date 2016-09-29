@@ -1,7 +1,7 @@
 ## coney_island
 
 ### Documentation
-See the full docs [here](http://edraut.github.io/coney_island/)
+See the full docs [here](https://github.com/edraut/coney_island/wiki)
 
 ### License
 This project rocks and uses MIT-LICENSE.
