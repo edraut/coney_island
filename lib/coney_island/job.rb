@@ -17,6 +17,9 @@ module ConeyIsland
       @class_name = args['klass']
       @klass = @class_name.constantize
       @method_args = args['args']
+      if @method_args.is_a? Hash # The whole args is keyword args
+        @method_args.symbolize_keys!
+      end
       # Symbolize hash keys for consistency and keyword arguments
       @method_args.each { |v| v.symbolize_keys! if v.is_a?(Hash) } if !!@method_args
       @attempts = args['attempt_count'] || 1
@@ -58,8 +61,14 @@ module ConeyIsland
     end
 
     def execute_job_method
-      if method_args.present? and method_args.length > 0
-        object.send method_name, *method_args
+      if method_args.present? && method_args.length > 0
+        # The whole args is keyword args, just pass it as is
+        if method_args.is_a? Hash
+          object.send method_name, method_args
+        else
+          # Splat the array into args
+          object.send method_name, *method_args
+        end
       else
         object.send method_name
       end
