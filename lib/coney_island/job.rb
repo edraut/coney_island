@@ -89,6 +89,9 @@ module ConeyIsland
       else
         ConeyIsland.poke_the_badger(e, {work_queue: self.ticket, job_payload: self.args})
         log.error("Bailing out on #{self.id} after error on final attempt ##{self.attempts}:")
+        if ConeyIsland.running_inline?
+          raise
+        end
       end
     ensure
       finalize_job
