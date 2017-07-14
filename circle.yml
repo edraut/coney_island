@@ -1,8 +1,0 @@
-machine:
-  ruby:
-    version: 2.2.3
-
-database:
-  override:
-    # DB is a NOOP for Coney
-    - pwd
