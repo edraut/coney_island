@@ -1,3 +1,6 @@
+require 'amqp'
+require 'request_store'
+
 module ConeyIsland
 
   ### BEGIN configuration
