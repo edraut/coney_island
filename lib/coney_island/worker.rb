@@ -93,9 +93,6 @@ module ConeyIsland
       else
         @amqp_parameters
       end
-      if @amqp_parameters.is_a? String
-        @amqp_parameters = AMQP::Settings.parse_connection_uri(@amqp_parameters)
-      end
       @amqp_parameters
     end
 
