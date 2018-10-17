@@ -147,7 +147,6 @@ module ConeyIsland
       @connection
     end
 
-    # TODO: Document me
     def self.publish_job(args, job_id = nil)
       # Map arguments
       klass, method_name, job_args = *args

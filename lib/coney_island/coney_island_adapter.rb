@@ -10,12 +10,18 @@ module ActiveJob
       #
       #   Rails.application.config.active_job.queue_adapter = :coney_island
       def enqueue(job) #:nodoc:
-        ConeyIsland::Submitter.submit JobWrapper, :perform, args: [job.serialize], work_queue: job.queue_name, timeout: get_timeout_from_args(job), retry_limit: get_retry_from_args(job)
+        ConeyIsland::Submitter.submit job.class, :perform, args: job.arguments, work_queue: job.queue_name, timeout: get_timeout_from_args(job),
+          retry_limit: get_retry_from_args(job), singleton: true
       end
 
       def enqueue_at(job, timestamp) #:nodoc:
+        params = {args: job.arguments, work_queue: job.queue_name, timeout: get_timeout_from_args(job),
+          retry_limit: get_retry_from_args(job), singleton: true}
         delay = timestamp - Time.current.to_f
-        ConeyIsland::Submitter.submit JobWrapper, :perform, args: [job.serialize], work_queue: job.queue_name, delay: delay, timeout: get_timeout_from_args(job), retry_limit: get_retry_from_args(job)
+        if delay > 0
+          params[:delay] = delay.round
+        end
+        ConeyIsland::Submitter.submit job.class, :perform, params
       end
 
       def get_timeout_from_args(job)
@@ -26,13 +32,6 @@ module ActiveJob
         job.class::RETRY_LIMIT if job.class.const_defined? :RETRY_LIMIT
       end
 
-      class JobWrapper #:nodoc:
-        class << self
-          def perform(job_data)
-            Base.execute job_data.stringify_keys!
-          end
-        end
-      end
     end
   end
 end
