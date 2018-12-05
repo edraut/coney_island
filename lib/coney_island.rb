@@ -39,6 +39,8 @@ module ConeyIsland
 
   def self.notifier
     case self.config[:notifier]
+    when :rollbar
+      Notifiers::RollbarNotifier
     when :airbrake
       Notifiers::AirbrakeNotifier
     when :bugsnag
