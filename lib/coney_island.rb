@@ -124,9 +124,7 @@ module ConeyIsland
   end
 
   def self.poke_the_badger(message, context = {}, attempts = 1)
-    Timeout::timeout(3) do
-      self.notifier.notify(message, context)
-    end
+    self.notifier.notify(message, context)
   rescue
     if attempts <= 3
       attempts += 1
@@ -151,6 +149,7 @@ require 'coney_island/configuration_error'
 require 'coney_island/job_argument_error'
 
 require 'coney_island/notifiers/base_notifier'
+require 'coney_island/notifiers/rollbar_notifier'
 require 'coney_island/notifiers/airbrake_notifier'
 require 'coney_island/notifiers/bugsnag_notifier'
 require 'coney_island/notifiers/honeybadger_notifier'
